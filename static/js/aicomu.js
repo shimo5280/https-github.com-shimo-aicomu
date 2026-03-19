@@ -50,7 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
   inputBox.style.display = "none";
   choiceRow.style.display = "none";
 
-  // 画像選択済み表示だけ出す
+  // 画像選択済み表示
   const selectedInfo = document.createElement("div");
   selectedInfo.id = "selectedInfo";
   selectedInfo.style.display = "none";
@@ -353,6 +353,12 @@ document.addEventListener("DOMContentLoaded", function () {
         })
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("server error:", text);
+        throw new Error("サーバーエラー");
+      }
+
       const data = await res.json();
 
       if (data.ok) {
@@ -398,6 +404,12 @@ document.addEventListener("DOMContentLoaded", function () {
         method: "POST",
         body: formData
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("server error:", text);
+        throw new Error("サーバーエラー");
+      }
 
       const data = await res.json();
 
@@ -527,9 +539,7 @@ document.addEventListener("DOMContentLoaded", function () {
     clearActionButtons();
     setInputsEnabled(false);
 
-    // -----------------------------
     // A = 画像生成
-    // -----------------------------
     if (currentMode === "generate") {
       if (!text) {
         addBubble("ai", "内容を入力してね🐾");
@@ -590,6 +600,12 @@ document.addEventListener("DOMContentLoaded", function () {
             })
           });
 
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("server error:", text);
+            throw new Error("サーバーエラー");
+          }
+
           const data = await res.json();
 
           if (data.ok) {
@@ -633,9 +649,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // -----------------------------
     // B = 画像修正
-    // -----------------------------
     if (currentMode === "edit") {
       if (editStage === "wait-images") {
         if (!file1 && !file2) {
@@ -737,6 +751,12 @@ document.addEventListener("DOMContentLoaded", function () {
             method: "POST",
             body: formData
           });
+
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("server error:", text);
+            throw new Error("サーバーエラー");
+          }
 
           const data = await res.json();
 

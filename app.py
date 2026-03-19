@@ -1,5 +1,7 @@
 import os
+import io
 import base64
+import traceback
 import requests
 import replicate
 
@@ -15,6 +17,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 ACCESS_CODE = "AICOMU2026"
 MAX_REQUEST = 20
 request_count = 0
+
 
 def check_access(code):
     return (code or "").strip() == ACCESS_CODE
@@ -46,7 +49,6 @@ def summarize_generate_answers(
         "自然でやわらかい、少しくだけた話し方にしてください。"
         "返答は短めにしてください。"
         "最後に🐾を付けてください。"
-
         "あなたの役割は、ユーザーの画像生成条件を整理して、"
         "軽いアドバイスを1つだけ添えることです。"
         "新しい質問はしてはいけません。"
@@ -116,6 +118,8 @@ def generate_replicate_photo_image(prompt: str) -> str:
     if not REPLICATE_API_TOKEN:
         raise RuntimeError("REPLICATE_API_TOKEN が設定されていません")
 
+    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+
     output = replicate.run(
         "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
         input={
@@ -155,7 +159,6 @@ def summarize_edit_answers(
         "自然でやわらかい、少しくだけた話し方にしてください。"
         "返答は短めにしてください。"
         "最後に🐾を付けてください。"
-
         "あなたの役割は、ユーザーの画像修正条件を整理して、"
         "軽いアドバイスを1つだけ添えることです。"
         "新しい質問はしてはいけません。"
@@ -193,7 +196,7 @@ def build_edit_prompt(
     )
 
     if extra:
-      prompt += f"追加要望: {extra}\n"
+        prompt += f"追加要望: {extra}\n"
 
     prompt += (
         "\n修正ルール:\n"
@@ -218,8 +221,6 @@ def build_edit_prompt(
     return prompt
 
 
-import io
-
 def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
     image_bytes = image_file_obj.read()
     image_name = image_file_obj.filename or "upload.png"
@@ -234,6 +235,7 @@ def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
     )
     return result.data[0].b64_json
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -244,16 +246,11 @@ def index():
 # --------------------------------
 @app.route("/api/generate_summary", methods=["POST"])
 def generate_summary():
-    global request_count
-
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     code = data.get("code")
 
     if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"})
-
-    if request_count >= MAX_REQUEST:
-        return jsonify({"ok": False, "message": "体験は終了しました"})
+        return jsonify({"ok": False, "message": "コードが違います"}), 403
 
     purpose = (data.get("purpose") or "").strip()
     style = (data.get("style") or "").strip()
@@ -261,36 +258,41 @@ def generate_summary():
     extra = (data.get("extra") or "").strip()
 
     if not purpose or not style or not image_type:
-        return jsonify({"ok": False, "message": "内容が足りません"})
+        return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
-    request_count += 1
+    try:
+        summary_text = summarize_generate_answers(
+            purpose=purpose,
+            style=style,
+            image_type=image_type,
+            extra=extra
+        )
 
-    summary_text = summarize_generate_answers(
-        purpose=purpose,
-        style=style,
-        image_type=image_type,
-        extra=extra
-    )
-
-    return jsonify({
-        "ok": True,
-        "message": summary_text,
-        "remaining": MAX_REQUEST - request_count
-    })
+        return jsonify({
+            "ok": True,
+            "message": summary_text,
+            "remaining": MAX_REQUEST - request_count
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": f"要約エラー: {type(e).__name__}: {str(e)}"
+        }), 500
 
 
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
     global request_count
 
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     code = data.get("code")
 
     if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"})
+        return jsonify({"ok": False, "message": "コードが違います"}), 403
 
     if request_count >= MAX_REQUEST:
-        return jsonify({"ok": False, "message": "体験は終了しました"})
+        return jsonify({"ok": False, "message": "体験は終了しました"}), 403
 
     purpose = (data.get("purpose") or "").strip()
     style = (data.get("style") or "").strip()
@@ -298,37 +300,35 @@ def generate_image():
     extra = (data.get("extra") or "").strip()
 
     if not purpose or not style or not image_type:
-        return jsonify({"ok": False, "message": "内容が足りません"})
-
-    request_count += 1
-
-    final_prompt = generate_image_prompt(
-        purpose=purpose,
-        style=style,
-        image_type=image_type,
-        extra=extra
-    )
+        return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
     try:
+        final_prompt = generate_image_prompt(
+            purpose=purpose,
+            style=style,
+            image_type=image_type,
+            extra=extra
+        )
+
         if image_type == "写真風":
             image_b64 = generate_replicate_photo_image(final_prompt)
         else:
             image_b64 = generate_openai_image_from_prompt(final_prompt)
-    except Exception as e:
-      import traceback
-      traceback.print_exc()
-      return jsonify({
-        "ok": False,
-        "message": f"{type(e).__name__}: {str(e)}"
-    }), 500
-        
 
-    return jsonify({
-        "ok": True,
-        "message": "お待たせ、画像を生成したよ🐾",
-        "image_b64": image_b64,
-        "remaining": MAX_REQUEST - request_count
-    })
+        request_count += 1
+
+        return jsonify({
+            "ok": True,
+            "message": "お待たせ、画像を生成したよ🐾",
+            "image_b64": image_b64,
+            "remaining": MAX_REQUEST - request_count
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": f"画像生成エラー: {type(e).__name__}: {str(e)}"
+        }), 500
 
 
 # --------------------------------
@@ -336,15 +336,10 @@ def generate_image():
 # --------------------------------
 @app.route("/api/edit_summary", methods=["POST"])
 def edit_summary():
-    global request_count
-
     code = request.form.get("code")
 
     if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"})
-
-    if request_count >= MAX_REQUEST:
-        return jsonify({"ok": False, "message": "体験は終了しました"})
+        return jsonify({"ok": False, "message": "コードが違います"}), 403
 
     image_count_type = (request.form.get("image_count_type") or "").strip()
     edit_request = (request.form.get("edit_request") or "").strip()
@@ -356,26 +351,31 @@ def edit_summary():
     image2 = request.files.get("image2")
 
     if not image1 and not image2:
-        return jsonify({"ok": False, "message": "画像を選んでください"})
+        return jsonify({"ok": False, "message": "画像を選んでください"}), 400
 
     if not image_count_type or not edit_request or not finish_type:
-        return jsonify({"ok": False, "message": "内容が足りません"})
+        return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
-    request_count += 1
+    try:
+        summary_text = summarize_edit_answers(
+            image_count_type=image_count_type,
+            edit_request=edit_request,
+            finish_type=finish_type,
+            keep_part=keep_part,
+            extra=extra
+        )
 
-    summary_text = summarize_edit_answers(
-        image_count_type=image_count_type,
-        edit_request=edit_request,
-        finish_type=finish_type,
-        keep_part=keep_part,
-        extra=extra
-    )
-
-    return jsonify({
-        "ok": True,
-        "message": summary_text,
-        "remaining": MAX_REQUEST - request_count
-    })
+        return jsonify({
+            "ok": True,
+            "message": summary_text,
+            "remaining": MAX_REQUEST - request_count
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": f"要約エラー: {type(e).__name__}: {str(e)}"
+        }), 500
 
 
 @app.route("/api/edit_image", methods=["POST"])
@@ -385,10 +385,10 @@ def edit_image():
     code = request.form.get("code")
 
     if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"})
+        return jsonify({"ok": False, "message": "コードが違います"}), 403
 
     if request_count >= MAX_REQUEST:
-        return jsonify({"ok": False, "message": "体験は終了しました"})
+        return jsonify({"ok": False, "message": "体験は終了しました"}), 403
 
     image_count_type = (request.form.get("image_count_type") or "").strip()
     edit_request = (request.form.get("edit_request") or "").strip()
@@ -400,12 +400,10 @@ def edit_image():
     image2 = request.files.get("image2")
 
     if not image1 and not image2:
-        return jsonify({"ok": False, "message": "画像を選んでください"})
+        return jsonify({"ok": False, "message": "画像を選んでください"}), 400
 
     if not image_count_type or not edit_request or not finish_type:
-        return jsonify({"ok": False, "message": "内容が足りません"})
-
-    request_count += 1
+        return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
     base_image = image1 if image1 else image2
 
@@ -420,19 +418,19 @@ def edit_image():
 
         image_b64 = edit_image_from_prompt(base_image, final_prompt)
 
+        request_count += 1
+
         return jsonify({
             "ok": True,
             "message": "お待たせ、画像を修正したよ🐾",
             "image_b64": image_b64,
             "remaining": MAX_REQUEST - request_count
         })
-
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({
             "ok": False,
-            "message": f"{type(e).__name__}: {str(e)}"
+            "message": f"画像修正エラー: {type(e).__name__}: {str(e)}"
         }), 500
 
 
