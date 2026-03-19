@@ -105,14 +105,18 @@ def generate_image_prompt(
     return prompt
 
 
-def generate_openai_image_from_prompt(final_prompt: str) -> str:
-    result = client.images.generate(
-        model="gpt-image-1",
-        prompt=final_prompt,
-        size="1024x1024"
-    )
-    return result.data[0].b64_json
+def generate_openai_image_from_prompt(final_prompt: str):
+    try:
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=final_prompt,
+            size="1024x1024"
+        )
+        return result.data[0].b64_json
 
+    except Exception as e:
+        print("🔥 OpenAIエラー:", str(e))
+        raise e
 
 def generate_replicate_photo_image(prompt: str) -> str:
     if not REPLICATE_API_TOKEN:
