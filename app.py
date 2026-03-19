@@ -429,8 +429,8 @@ def edit_image():
         traceback.print_exc()
         return jsonify({
             "ok": False,
-            "message": f"画像修正エラー: {type(e).__name__}: {str(e)}"
-        })
+            "message": f"{type(e).__name__}: {str(e)}"
+        }), 500
 
 
 if __name__ == "__main__":
