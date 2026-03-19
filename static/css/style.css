@@ -1,0 +1,171 @@
+
+/* 全体 */
+body {
+  background: linear-gradient(
+    135deg,
+    #f2caca,
+    #f2e0ca,
+    #f2f2ca,
+    #caf2ca,
+    #cae6f2,
+    #cacaf2,
+    #e6caf2
+  );
+  background-size: 400% 400%;
+  animation: rainbowMove 40s ease infinite;
+}  
+p {
+  text-align: center;
+  margin: 12px auto;
+  width: 100%;
+}
+.sub { 
+  color: #00F;
+}
+
+body::before {
+  background: rgba(0,0,0,0.3);
+}
+
+@keyframes rainbowMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+    body{
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: 'Noto Sans JP'  sans-serif;
+      font-weight: 400;
+      
+      
+}
+
+     
+  
+    .hero{
+      position: relative;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+    }
+
+    /* 真ん中ブロック */
+    .centerBlock{
+      text-align: center;
+      width: min(640px, 92vw);
+
+      /* ここで上に持ち上げる（好みで調整） */
+      transform: translateY(-50px);
+    }
+
+
+  .logo{
+      width: min(520px, 80vw);
+      height: auto;
+      display: block;
+      margin: 0 auto 18px;
+      filter: drop-shadow(0 10px 25px var(--shadow));
+    }
+  
+     .sub{
+       margin: 0 0 18px;
+       font-size: clamp(18px, 2.2vw, 16px);
+       opacity: .95;
+       text-shadow: 0 6px 18px var(--shadow);
+       color: #000011;
+    }
+
+    .actions{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+.button-area {
+  display: flex;
+  justify-content: center;
+}
+
+#goAicomu {
+  border: 2px solid rgba(255,255,255,0.55);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+  color: #FF6884; 
+  font-size: 18px;
+  padding: 14px 28px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  cursor: pointer;
+  padding: 0 0 24px 0px
+  /* ここが効く */
+  box-shadow
+    0 0 0 1px rgba(255,255,255,0.25),
+    0 0 18px rgba(255,255,255,0.25);
+}
+
+   #btnGoAicomu:hover {
+  border:2px solid raba(255,255,255,0,35);
+  background: rgba(255,255,255,0.18);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.35),
+    0 0 22px rgba(255,255,255,0.35);
+  transform: translateY(-1px);
+}
+
+
+   
+
+.hidden { display: none !important; }
+
+/* 全画面ローディング */
+#loadingOverlay{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+
+
+/* ローディング（全画面オーバーレイ） */
+.loadingBox{
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.35);
+  z-index: 9999;
+}
+
+
+@keyframes spin{
+  to { transform: rotate(360deg); }
+}
+.loginBtn{
+      border: 1px solid rgba(255,255,255,.65);
+      background: rgba(0,0,0,.18);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: .06em;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 10px 22px rgba(0,0,0,.18);
+ }
+
+.loginCorner{
+   padding: 24px;
+
+.hidden {
+  display: none;
+}

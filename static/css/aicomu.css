@@ -1,0 +1,368 @@
+body{
+  background: linear-gradient(
+    135deg,
+    #f2caca,
+    #f2e0ca,
+    #f2f2ca,
+    #caf2ca,
+    #cae6f2,
+    #cacaf2,
+    #e6caf2
+  );
+  background-size: 400% 400%;
+  animation: rainbowMove 40s ease infinite;
+}
+
+p{
+  text-align: center;
+  margin: 12px auto;
+  width: 100%;
+}
+
+.photo{
+  width: min(120px, 60vw);
+  height: auto;
+  display: block;
+  margin: 10px auto 10px;
+  background: transparent;
+}
+
+.sub{
+  color: blue;
+}
+
+/* まず画面の土台 */
+html,
+body{
+  height: 100%;
+  margin: 0;
+}
+
+/* 外枠 */
+.container{
+  height: min(780px, 100vh);
+  width: min(640px, 100%);
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+  border: 2px solid silver;
+  display: flex;
+  flex-direction: column;
+  background: rgba(238, 191, 130, 0.103);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  border-radius: 10px;
+}
+
+/* appを縦レイアウトにする */
+#app{
+  display: flex;
+  flex-direction: column;
+  height: min(760px, 100%);
+  width: min(620px, 100%);
+  margin: 0 auto 15px;
+  padding: 15px;
+  box-sizing: border-box;
+  background: #F8F8FF;
+  border: 2px solid #FFC7AF;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ヘッダー（アバター）固定 */
+.avatars{
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  background: transparent;
+}
+
+.avatar img{
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* チャットだけスクロール */
+#chatArea{
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+/* フッター固定（入力欄の親） */
+.chatFooter{
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(0,0,0,.08);
+  padding: 10px 12px;
+  background: transparent;
+  border-radius: 10px;
+}
+
+.bubble{
+  max-width: 50%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  margin: 12px;
+}
+
+.bubble.ai{
+  align-self: flex-start;
+  background: #FFFFEE;
+  border: 1px solid rgba(0,0,0,.10);
+}
+
+.bubble.user{
+  align-self: flex-end;
+  background: #EEFFFF;
+  color: #000;
+}
+
+.bubble.loading{
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+#cameraArea{
+ margin-right: 6px;
+ #cameraArea{
+  margin-top: -4px;
+ }
+}
+#cameraBtn1, #cameraBtn2{
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  border: 2px solid rgba(240, 160, 224, 0.2);
+  background: rgba(247, 191, 224, 0.15);
+  padding: 4px 6px;
+  border-radius: 10px;
+}
+
+/* 入力フォーム */
+#inputBox{
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* 入力欄 */
+#inputUser{
+  flex: 1;
+  min-width: 200px;
+  height: 38px;
+  padding: 10px 12px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.336);
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.12);
+}
+
+.btn-area{
+  margin: 10px 0 16px;
+  display: flex;
+  justify-content: center;
+  gap: 100px;
+}
+
+.btn-area button{
+  width: 150px;
+  height: 80px;
+  font-size: 30px;
+  border-radius: 24px;
+  border: none;
+  cursor: pointer;
+}
+
+/* 送信ボタン */
+#sendBtn{
+  height: 32px;
+  padding: 0 6px;
+  font-size: 12px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.336);
+  background: #3366FF;
+  color: white;
+  border-radius: 10px;
+}
+
+.wrap{
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 18px;
+}
+
+.title{
+  margin: 0 0 10px;
+  font-size: 28px;
+}
+
+/* Yes / No ボタン */
+.btnRow{
+  margin: 10px 0 16px;
+  display: flex;
+  justify-content: center;
+  gap: 100px;
+  flex-shrink: 0;
+}
+
+.btnRow button{
+  width: 100px;
+  height: 75px;
+  font-size: 20px;
+  border-radius: 24px;
+  border: none;
+  cursor: pointer;
+  border: 3px solid rgb(255 255 255);
+}
+
+#btnYes{
+  border: 2px solid rgb(151, 205, 250);
+  background: rgba(158, 213, 235, 0.1);
+  color: #2C7CFF;
+  padding: 12px 26px;
+  border-radius: 14px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 5px rgba(0,0,0,.12);
+  transition:
+    transform .12s ease,
+    box-shadow .12s ease,
+    background .12s ease,
+    color .12s ease;
+}
+
+#btnYes:hover{
+  background: rgba(255,255,255,.18);
+  box-shadow: 0 10px 26px rgba(0,0,0,.28);
+}
+
+#btnYes:active{
+  transform: translateY(2px) scale(0.97);
+  background: rgba(255,255,255,.28);
+  box-shadow:
+    0 4px 10px rgba(0,0,0,.35),
+    inset 0 3px 8px rgba(0,0,0,.25);
+}
+
+#btnNo{
+  border: 2px solid rgb(245, 174, 197);
+  background: rgba(238, 184, 222, 0.1);
+  color: #FF5192;
+  padding: 12px 26px;
+  border-radius: 14px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 5px rgba(0,0,0,.12);
+  transition:
+    transform .12s ease,
+    box-shadow .12s ease,
+    background .12s ease,
+    color .12s ease;
+}
+
+#btnNo:hover{
+  background: rgba(255,255,255,.18);
+  box-shadow: 0 10px 26px rgba(0,0,0,.28);
+}
+
+#btnNo:active{
+  transform: translateY(2px) scale(0.97);
+  background: rgba(255,255,255,.28);
+  box-shadow:
+    0 4px 10px rgba(0,0,0,.35),
+    inset 0 3px 8px rgba(0,0,0,.25);
+}
+
+#cutinLogo{
+  display: none;
+}
+
+.bubble img{
+  width: 100%;
+  max-width: 300px;
+  animation: slideIn 0.5s ease forwards;
+}
+
+@keyframes slideIn{
+  0%{
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100%{
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes rainbowMove{
+  0%{
+    background-position: 0% 50%;
+  }
+  50%{
+    background-position: 100% 50%;
+  }
+  100%{
+    background-position: 0% 50%;
+  }
+}
+
+@media (max-width: 480px){
+  .avatars{
+    padding: 6px 12px;
+  }
+}
+
+#codeRow{
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px;
+}
+
+#codeInput{
+  width: 200px;
+  padding: 8px;
+  border: 2px solid silver;
+}
+
+#btnCodeOk{
+  padding: 8px 12px;
+}
+
+#imagePreviewArea{
+  width: 100%;
+  display: none;
+  justify-content: center;
+  margin: 0 0 10px;
+}
+
+#imagePreview{
+  max-width: 70%;
+  max-height: 180px;
+  border-radius: 12px;
+  border: 2px solid #777;
+  display: block;
+}
+#previewImg {
+  display: none;
+  height: 40px;
+  width: auto;
+  border-radius: 6px;
+}

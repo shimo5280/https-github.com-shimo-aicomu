@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIコミュ</title>
+
+  <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='icons/icon-48.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/icon-32.png') }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/icon-16.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/aicomu.css') }}">
+</head>
+
+<body>
+  <!-- Top -->
+  <section id="pageTop">
+    <img class="logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="AIコミュ ロゴ">
+    <p>こちらから↓</p>
+
+    <div class="button-area">
+      <button id="goAicomu" type="button">体験に行こう</button>
+    </div>
+
+    <div id="loadingOverlay" class="hidden" aria-live="polite" aria-busy="true">
+      <div class="loadingBox">
+        <div class="loadingText">
+          <img class="logo" src="{{ url_for('static', filename='images/logo2.png') }}" alt="AIコミュ ロゴ">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Aicomu -->
+  <section id="pageAicomu" class="hidden">
+    <div id="codeRow">
+      <input type="text" id="codeInput" placeholder="コードを入力">
+      <button id="btnCodeOk" type="button">OK</button>
+    </div>
+
+    <div class="container">
+      <header class="avatars">
+        <div class="avatar ai">
+          <img id="aiAvatar" src="{{ url_for('static', filename='images/ai.png') }}" alt="AIアバター">
+        </div>
+
+        <img class="photo" src="{{ url_for('static', filename='images/logo2.png') }}" alt="AIコミュ ロゴ">
+
+        <div class="avatar user">
+          <img id="userAvatar" src="{{ url_for('static', filename='images/user.png') }}" alt="ユーザーアバター">
+        </div>
+      </header>
+
+      <div class="app" id="app">
+        <main class="chat" id="chatArea" aria-live="polite">
+        </main>
+
+        <div class="chatFooter">
+          <!-- 写真プレビューを入力欄のところに表示 -->
+
+    <div id="inputBox">
+      <div id="cameraArea">
+        <label for="imageInput1" id="cameraBtn1">📷1</label>
+         <input type="file" id="imageInput1" accept="image/*" hidden>
+
+        <label for="imageInput2" id="cameraBtn2">📷2</label>
+          <input type="file" id="imageInput2" accept="image/*" hidden>
+     </div>
+            <img id="previewImg"/>
+            <input type="text" id="inputUser" placeholder="入力してね☆">
+            <button id="sendBtn" type="button">送信</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="btnRow" id="choiceRow">
+        <button id="btnYes" type="button">YES</button>
+        <button id="btnNo" type="button">NO</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/aicomu.js') }}"></script>
+</body>
+</html>
