@@ -1,5 +1,5 @@
 flask
-gunicon
+gunicorn
 openai
 replicate
 python-dotenv
