@@ -322,15 +322,15 @@ document.addEventListener("DOMContentLoaded", function () {
       clearActionButtons();
 
       if (ok) {
-        addBubble("ai", "保存したよ。🐾");
+        addBubble("ai", "保存したよ🐾");
       } else {
-        addBubble("ai", "保存に失敗したよ。🐾");
+        addBubble("ai", "保存に失敗したよ🐾");
       }
     });
 
     noBtn.addEventListener("click", function () {
       clearActionButtons();
-      addBubble("ai", "保存はしないでそのままにしておくね。🐾");
+      addBubble("ai", "保存はしないでそのままにしておくね🐾");
     });
 
     row.appendChild(yesBtn);
@@ -364,11 +364,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (data.ok) {
         loading.stop(data.message);
       } else {
-        loading.stop(data.message || "相談に失敗したよ。🐾");
+        loading.stop(data.message || "相談に失敗したよ🐾");
       }
     } catch (error) {
       console.error(error);
-      loading.stop("通信エラーが起きたよ。🐾");
+      loading.stop("通信エラーが起きたよ🐾");
     }
   }
 
@@ -395,22 +395,22 @@ document.addEventListener("DOMContentLoaded", function () {
       const data = await res.json();
 
       if (data.ok) {
-        loading.stop(data.message || "お待たせ、画像を生成したよ。🐾");
+        loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
 
         if (data.image_b64) {
           addGeneratedImageBubble(data.image_b64);
           addSaveButtons(data.image_b64);
         } else {
-          addBubble("ai", "画像データが見つからなかったよ。🐾");
+          addBubble("ai", "画像データが見つからなかったよ🐾");
         }
 
         resetGenerateFlow();
       } else {
-        loading.stop(data.message || "送信に失敗したよ。🐾");
+        loading.stop(data.message || "送信に失敗したよ🐾");
       }
     } catch (error) {
       console.error(error);
-      loading.stop("通信エラーが起きたよ。🐾");
+      loading.stop("通信エラーが起きたよ🐾");
     }
 
     inputUser.value = "";
@@ -441,23 +441,23 @@ document.addEventListener("DOMContentLoaded", function () {
       const data = await res.json();
 
       if (data.ok) {
-        loading.stop(data.message || "お待たせ、画像を修正したよ。🐾");
+        loading.stop(data.message || "お待たせ、画像を修正したよ🐾");
 
         if (data.image_b64) {
           addGeneratedImageBubble(data.image_b64);
           addSaveButtons(data.image_b64);
         } else {
-          addBubble("ai", "画像データが見つからなかったよ。🐾");
+          addBubble("ai", "画像データが見つからなかったよ🐾");
         }
 
         clearPreview();
         resetEditFlow();
       } else {
-        loading.stop(data.message || "送信に失敗したよ。🐾");
+        loading.stop(data.message || "送信に失敗したよ🐾");
       }
     } catch (error) {
       console.error(error);
-      loading.stop("通信エラーが起きたよ。🐾");
+      loading.stop("通信エラーが起きたよ🐾");
     }
 
     inputUser.value = "";
@@ -484,15 +484,15 @@ document.addEventListener("DOMContentLoaded", function () {
     if (code !== CODE_VALUE) {
       choiceRow.style.display = "none";
       inputBox.style.display = "none";
-      addBubble("ai", "コードが違うよ。もう一度入力してね。🐾");
+      addBubble("ai", "コードが違うよ。もう一度入力してね🐾");
       return;
     }
 
     btnYes.textContent = "A";
     btnNo.textContent = "B";
 
-    addBubble("ai", "コードを確認したよ。🐾");
-    addBubble("ai", "A は画像の生成、B は画像の修正だよ。どちらか選んでね。🐾");
+    addBubble("ai", "コードを確認したよ🐾");
+    addBubble("ai", "A は画像の生成、B は画像の修正だよ。どちらか選んでね🐾");
 
     choiceRow.style.display = "flex";
     inputBox.style.display = "none";
@@ -518,7 +518,7 @@ document.addEventListener("DOMContentLoaded", function () {
     generateStage = "ask-purpose";
     addBubble("user", "A");
     addBubble("ai", "画像生成だね。🐾");
-    addBubble("ai", "まず、何に使う画像を作りたいですか？\n（例：ホームページ背景、SNS投稿、アイコン など）");
+    addBubble("ai", "まず、何に使う画像を作りたい？\n（例：ホームページ背景、SNS投稿、アイコン など）");
 
     inputBox.style.display = "flex";
     cameraArea.style.display = "none";
@@ -535,8 +535,8 @@ document.addEventListener("DOMContentLoaded", function () {
     editStage = "wait-images";
 
     addBubble("user", "B");
-    addBubble("ai", "画像修正だね。🐾");
-    addBubble("ai", "まずは修正したい画像を1枚か2枚選んで、送信ボタンを押してね。🐾");
+    addBubble("ai", "画像修正だね🐾");
+    addBubble("ai", "まずは修正したい画像を1枚か2枚選んで、送信ボタンを押してね🐾");
 
     inputBox.style.display = "flex";
     cameraArea.style.display = "flex";
@@ -559,7 +559,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const text = inputUser.value.trim();
 
     if (!currentMode) {
-      addBubble("ai", "先に A か B を選んでね。🐾");
+      addBubble("ai", "先に A か B を選んでね🐾");
       return;
     }
 
@@ -571,7 +571,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // -----------------------------
     if (currentMode === "generate") {
       if (!text) {
-        addBubble("ai", "内容を入力してね。🐾");
+        addBubble("ai", "内容を入力してね🐾");
         setInputsEnabled(true);
         return;
       }
@@ -585,7 +585,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "次に、どんな画像にしたいですか？\n「かわいい猫」「綺麗な虹」みたいに、主役になるものを教えてください。🐾"
+          "次に、どんな画像にしたい？\n「かわいい猫」「綺麗な虹」みたいに、主役になるものを教えてね🐾"
         );
 
         inputUser.value = "";
@@ -659,10 +659,10 @@ document.addEventListener("DOMContentLoaded", function () {
           "生成する",
           handleGenerateFinal,
           function () {
-            addBubble("ai", "キャンセルしたよ。もう一回最初から考えたい時は送ってね。🐾");
+            addBubble("ai", "キャンセルしたよ🐾もう一回最初から考えたい時は送ってね。🐾");
             resetGenerateFlow();
             generateStage = "ask-purpose";
-            addBubble("ai", "まず、何に使う画像を作りたいですか？\n（例：ホームページ背景、SNS投稿、アイコン など）");
+            addBubble("ai", "まず、何に使う画像を作りたい？\n（例：ホームページ背景、SNS投稿、アイコン など）");
             setInputsEnabled(true);
             inputUser.focus();
           }
@@ -681,7 +681,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (currentMode === "edit") {
       if (editStage === "wait-images") {
         if (!file1 && !file2) {
-          addBubble("ai", "画像を1枚か2枚選んでね。🐾");
+          addBubble("ai", "画像を1枚か2枚選んでね🐾");
           setInputsEnabled(true);
           return;
         }
@@ -697,7 +697,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "画像をどのように修正したいですか？🐾\n1枚の場合：障害物を取り除きたい、カラーにしたい、背景を変えたい など\n2枚の場合：この服をこの人に着せたい、この画像どうしを組み合わせたい など"
+          "画像をどのように修正したいか？🐾\n1枚の場合：障害物を取り除きたい、カラーにしたい、背景を変えたい など\n2枚の場合：この服をこの人に着せたい、この画像どうしを組み合わせたい など"
         );
 
         inputUser.value = "";
@@ -708,7 +708,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (editStage === "ask-request") {
         if (!text) {
-          addBubble("ai", "どう修正したいか教えてね。🐾");
+          addBubble("ai", "どう修正したいか教えてね🐾");
           setInputsEnabled(true);
           return;
         }
@@ -718,7 +718,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "仕上がりはどんな感じがいいですか？\n（例：写真風、イラスト風、漫画風 など）🐾"
+          "仕上がりはどんな感じがいい？\n（例：写真風、イラスト風、漫画風 など）🐾"
         );
 
         inputUser.value = "";
@@ -729,7 +729,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (editStage === "ask-finish") {
         if (!text) {
-          addBubble("ai", "仕上がりの感じを教えてね。🐾");
+          addBubble("ai", "仕上がりの感じを教えてね🐾");
           setInputsEnabled(true);
           return;
         }
@@ -739,7 +739,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "元の画像で残したい部分はありますか？\n（例：顔はそのまま、人物はそのまま、ポーズはそのまま、なし）🐾"
+          "元の画像で残したい部分はある？\n（例：顔はそのまま、人物はそのまま、ポーズはそのまま、なし）🐾"
         );
 
         inputUser.value = "";
@@ -750,7 +750,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (editStage === "ask-keep-part") {
         if (!text) {
-          addBubble("ai", "残したい部分がなければ『なし』で大丈夫だよ。🐾");
+          addBubble("ai", "残したい部分がなければ『なし』で大丈夫だよ🐾");
           setInputsEnabled(true);
           return;
         }
@@ -760,7 +760,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "どこを直したいか、できるだけ具体的に書いてください。\n具体的に書いてくれると、よりイメージに近づくよ。🐾"
+          "どこを直したいか、できるだけ具体的に書いてね🐾\n具体的に書いてくれると、よりイメージに近づくよ🐾"
         );
 
         inputUser.value = "";
@@ -771,7 +771,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (editStage === "ask-extra") {
         if (!text) {
-          addBubble("ai", "追加したいことがなければ『なし』で大丈夫だよ。🐾");
+          addBubble("ai", "追加したいことがなければ『なし』で大丈夫だよ🐾");
           setInputsEnabled(true);
           return;
         }
@@ -783,7 +783,7 @@ document.addEventListener("DOMContentLoaded", function () {
           "修正する",
           handleEditFinal,
           function () {
-            addBubble("ai", "キャンセルしたよ。もう一回修正内容を変えたい時は送ってね。🐾");
+            addBubble("ai", "キャンセルしたよ🐾もう一回修正内容を変えたい時は送ってね🐾");
             resetEditFlow();
             editStage = "wait-images";
             clearPreview();
@@ -809,6 +809,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  addBubble("ai", "ようこそAIコミュへ。🐾");
-  addBubble("ai", "コードを入力してOKを押してね。🐾");
+  addBubble("ai", "ようこそAIコミュへ🐾");
+  addBubble("ai", "コードを入力してOKを押してね🐾");
 });
