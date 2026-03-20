@@ -41,7 +41,7 @@ def generate_image():
         # プロンプトをまとめる
         final_prompt = prompt
         if extra_detail:
-            final_prompt += f"\n\n追加要望:\n{extra_detail}"
+            final_prompt += f"\n\n追加の要望:\n{extra_detail}"
 
         # 写真寄りにしたい時の補強文
         final_prompt += """
