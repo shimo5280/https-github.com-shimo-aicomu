@@ -241,16 +241,17 @@ def build_edit_prompt(
         "・仕上がりスタイルを反映してください。\n"
     )
 
-    if finish_type == "写真風":
-        prompt += (
-            "\nphotorealistic, real photograph, natural lighting, "
-            "realistic skin texture, high detail, "
-            "not illustration, not anime, not cartoon\n"
-        )
-    elif finish_type == "イラスト風":
-        prompt += "\nillustration, digital art, painted style\n"
-    elif finish_type == "漫画風":
-        prompt += "\nmanga style, comic style, line art\n"
+    if image_type == "写真風":
+     prompt += (
+        "\nphotorealistic, real photograph, shot with a real camera, "
+        "natural lighting, realistic skin texture, high detail, "
+        "depth of field, professional photography, "
+        "not illustration, not anime, not cartoon\n"
+    )
+    elif image_type == "イラスト風":
+     prompt += "\nillustration, digital art, painted style\n"
+    elif image_type == "漫画風":
+     prompt += "\nmanga style, comic style, line art\n"
 
     return prompt
 
@@ -334,7 +335,6 @@ def generate_summary():
             "message": f"要約エラー: {type(e).__name__}: {str(e)}"
         }), 500
 
-
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
     global request_count
@@ -368,10 +368,8 @@ def generate_image():
         print("✅ image_type:", image_type)
         print("✅ final_prompt:", final_prompt)
 
-        if image_type == "写真風":
-            image_b64 = generate_replicate_photo_image(final_prompt)
-        else:
-            image_b64 = generate_openai_image_from_prompt(final_prompt)
+        # いったん全部 OpenAI に統一
+        image_b64 = generate_openai_image_from_prompt(final_prompt)
 
         request_count += 1
 
@@ -388,8 +386,6 @@ def generate_image():
             "ok": False,
             "message": f"画像生成エラー: {type(e).__name__}: {str(e)}"
         }), 500
-
-
 # --------------------------------
 # B 修正
 # --------------------------------
