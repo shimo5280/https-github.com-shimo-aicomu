@@ -2,7 +2,6 @@ import os
 import io
 import base64
 import traceback
-import requests
 
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
@@ -22,179 +21,75 @@ def check_access(code):
 
 
 def chat_reply(system_text: str, user_text: str) -> str:
-    response = client.responses.create(
-        model="gpt-5-mini",
-        input=[
-            {"role": "system", "content": system_text},
-            {"role": "user", "content": user_text},
-        ],
-    )
-    return response.output_text.strip()
+    try:
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": user_text},
+            ],
+        )
+        return response.output_text.strip()
+    except Exception as e:
+        print("CHAT ERROR:", e)
+        return "今ちょっと不安定みたい🐾"
 
 
 # --------------------------------
 # A 画像生成
 # --------------------------------
-def summarize_generate_answers(
-    purpose: str,
-    style: str,
-    image_type: str,
-    extra: str,
-) -> str:
+def summarize_generate_answers(purpose, style, image_type, extra):
     system_text = (
         "あなたは親しみやすい相棒タイプの日本語AIです。"
         "敬語すぎる話し方は禁止です。"
         "自然でやわらかい、少しくだけた話し方にしてください。"
         "返答は短めにしてください。"
         "最後に🐾を付けてください。"
-        "あなたの役割は、ユーザーの画像生成条件を整理して、"
-        "軽いアドバイスを1つだけ添えることです。"
-        "新しい質問はしてはいけません。"
-        "追加の提案は禁止です。"
-        "ボタン操作の説明は禁止です。"
-        "アドバイスは必ず1つだけにしてください。"
+        "条件を整理して軽いアドバイスを1つだけ付けてください。"
     )
 
     user_text = (
         f"用途: {purpose}\n"
         f"系統: {style}\n"
         f"画像タイプ: {image_type}\n"
-        f"追加要素: {extra if extra else 'なし'}\n\n"
-        "この内容を自然に整理して、軽いアドバイスを1つだけ付けてください。"
+        f"追加要素: {extra if extra else 'なし'}\n"
     )
 
     return chat_reply(system_text, user_text)
 
 
-def generate_image_prompt(
-    purpose: str,
-    style: str,
-    image_type: str,
-    extra: str,
-) -> str:
-    prompt = (
-        f"用途: {purpose}\n"
-        f"系統: {style}\n"
-        f"画像タイプ: {image_type}\n"
-    )
+def generate_image_prompt(purpose, style, image_type, extra):
+    prompt = f"{purpose}, {style}, {image_type}"
 
     if extra:
-        prompt += f"追加要素: {extra}\n"
+        prompt += f", {extra}"
 
     if image_type == "写真風":
-        prompt += (
-            "\nphotorealistic, real photograph, shot with a real camera, "
-            "natural lighting, realistic skin texture, high detail, "
-            "depth of field, professional photography, "
-            "not illustration, not anime, not cartoon\n"
-        )
+        prompt += ", photorealistic, realistic, high detail"
     elif image_type == "イラスト風":
-        prompt += "\nillustration, digital art, painted style\n"
+        prompt += ", illustration"
     elif image_type == "漫画風":
-        prompt += "\nmanga style, comic style, line art\n"
-
-    prompt += (
-        "\n上の内容を満たす画像を生成してください。"
-        "用途に合う見せ方を優先してください。"
-        "系統と画像タイプをしっかり反映してください。"
-        "子供っぽい印象になりすぎないようにしてください。"
-    )
+        prompt += ", manga"
 
     return prompt
 
 
-def generate_openai_image_from_prompt(final_prompt: str) -> str:
+def generate_openai_image_from_prompt(prompt):
     result = client.images.generate(
         model="gpt-image-1",
-        prompt=final_prompt,
+        prompt=prompt,
         size="1024x1024"
     )
     return result.data[0].b64_json
 
 
 # --------------------------------
-# B 画像修正
+# B 修正
 # --------------------------------
-def summarize_edit_answers(
-    image_count_type: str,
-    edit_request: str,
-    finish_type: str,
-    keep_part: str,
-    extra: str,
-) -> str:
-    system_text = (
-        "あなたは親しみやすい相棒タイプの日本語AIです。"
-        "敬語すぎる話し方は禁止です。"
-        "自然でやわらかい、少しくだけた話し方にしてください。"
-        "返答は短めにしてください。"
-        "最後に🐾を付けてください。"
-        "あなたの役割は、ユーザーの画像修正条件を整理して、"
-        "軽いアドバイスを1つだけ添えることです。"
-        "新しい質問はしてはいけません。"
-        "追加の提案は禁止です。"
-        "ボタン操作の説明は禁止です。"
-        "アドバイスは必ず1つだけにしてください。"
-    )
-
-    user_text = (
-        f"画像枚数: {image_count_type}\n"
-        f"修正内容: {edit_request}\n"
-        f"仕上がり: {finish_type}\n"
-        f"残したい部分: {keep_part if keep_part else 'なし'}\n"
-        f"追加要望: {extra if extra else 'なし'}\n\n"
-        "この内容を自然に整理して、軽いアドバイスを1つだけ付けてください。"
-    )
-
-    return chat_reply(system_text, user_text)
-
-
-def build_edit_prompt(
-    image_count_type: str,
-    edit_request: str,
-    finish_type: str,
-    keep_part: str,
-    extra: str = "",
-) -> str:
-    keep_text = keep_part if keep_part else "特になし"
-
-    prompt = (
-        f"画像枚数: {image_count_type}\n"
-        f"変更内容: {edit_request}\n"
-        f"仕上がりスタイル: {finish_type}\n"
-        f"維持する部分: {keep_text}\n"
-    )
-
-    if extra:
-        prompt += f"追加要望: {extra}\n"
-
-    prompt += (
-        "\n修正ルール:\n"
-        "・指定された部分のみ変更してください。\n"
-        "・それ以外の人物、構図、ポーズ、背景はできるだけ維持してください。\n"
-        "・維持する部分が指定されている場合は、その部分を優先して残してください。\n"
-        "・変更内容を最優先してください。\n"
-        "・仕上がりスタイルを反映してください。\n"
-    )
-
-    if finish_type == "写真風":
-        prompt += (
-            "\nphotorealistic, real photograph, natural lighting, "
-            "realistic skin texture, high detail, "
-            "not illustration, not anime, not cartoon\n"
-        )
-    elif finish_type == "イラスト風":
-        prompt += "\nillustration, digital art, painted style\n"
-    elif finish_type == "漫画風":
-        prompt += "\nmanga style, comic style, line art\n"
-
-    return prompt
-
-
-def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
+def edit_image_from_prompt(image_file_obj, final_prompt):
     image_bytes = image_file_obj.read()
-    image_name = image_file_obj.filename or "upload.png"
     image_stream = io.BytesIO(image_bytes)
-    image_stream.name = image_name
+    image_stream.name = "upload.png"
 
     result = client.images.edit(
         model="gpt-image-1",
@@ -205,168 +100,98 @@ def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
     return result.data[0].b64_json
 
 
+# --------------------------------
+# ルート
+# --------------------------------
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
 # --------------------------------
-# A 生成
+# 生成（要約）
 # --------------------------------
-# 
-@app.route("/api/generate_consult", methods=["POST"])
-def generate_consult():
-    return generate_summary()
- 
+@app.route("/api/generate_summary", methods=["POST"])
+def generate_summary():
+    data = request.get_json(silent=True) or {}
+
+    if not check_access(data.get("code")):
+        return jsonify({"ok": False, "message": "コード違う"}), 403
+
+    try:
+        text = summarize_generate_answers(
+            data.get("purpose", ""),
+            data.get("style", ""),
+            data.get("image_type", ""),
+            data.get("extra", "")
+        )
+        return jsonify({"ok": True, "message": text})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "message": str(e)}), 500
+
+
+# --------------------------------
+# 生成（画像）
+# --------------------------------
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
     global request_count
 
     data = request.get_json(silent=True) or {}
-    code = data.get("code")
 
-    if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"}), 403
+    if not check_access(data.get("code")):
+        return jsonify({"ok": False, "message": "コード違う"}), 403
 
     if request_count >= MAX_REQUEST:
-        return jsonify({"ok": False, "message": "体験は終了しました"}), 403
-
-    purpose = (data.get("purpose") or "").strip()
-    style = (data.get("style") or "").strip()
-    image_type = (data.get("image_type") or "").strip()
-    extra = (data.get("extra") or "").strip()
-
-    if not purpose or not style or not image_type:
-        return jsonify({"ok": False, "message": "内容が足りません"}), 400
+        return jsonify({"ok": False, "message": "終了"}), 403
 
     try:
-        final_prompt = generate_image_prompt(
-            purpose=purpose,
-            style=style,
-            image_type=image_type,
-            extra=extra
+        prompt = generate_image_prompt(
+            data.get("purpose", ""),
+            data.get("style", ""),
+            data.get("image_type", ""),
+            data.get("extra", "")
         )
 
-        image_b64 = generate_openai_image_from_prompt(final_prompt)
+        image_b64 = generate_openai_image_from_prompt(prompt)
 
         request_count += 1
 
         return jsonify({
             "ok": True,
-            "message": "お待たせ、画像を生成したよ🐾",
-            "image_b64": image_b64,
-            "remaining": MAX_REQUEST - request_count
+            "image_b64": image_b64
         })
     except Exception as e:
         traceback.print_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"画像生成エラー: {type(e).__name__}: {str(e)}"
-        }), 500
+        return jsonify({"ok": False, "message": str(e)}), 500
 
 
 # --------------------------------
-# B 修正
+# 修正
 # --------------------------------
-@app.route("/api/edit_summary", methods=["POST"])
-def edit_summary():
-    code = request.form.get("code")
-
-    if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"}), 403
-
-    image_count_type = (request.form.get("image_count_type") or "").strip()
-    edit_request = (request.form.get("edit_request") or "").strip()
-    finish_type = (request.form.get("finish_type") or "").strip()
-    keep_part = (request.form.get("keep_part") or "").strip()
-    extra = (request.form.get("extra") or "").strip()
-
-    image1 = request.files.get("image1")
-    image2 = request.files.get("image2")
-
-    if not image1 and not image2:
-        return jsonify({"ok": False, "message": "画像を選んでください"}), 400
-
-    if not image_count_type or not edit_request or not finish_type:
-        return jsonify({"ok": False, "message": "内容が足りません"}), 400
-
-    try:
-        summary_text = summarize_edit_answers(
-            image_count_type=image_count_type,
-            edit_request=edit_request,
-            finish_type=finish_type,
-            keep_part=keep_part,
-            extra=extra
-        )
-
-        return jsonify({
-            "ok": True,
-            "message": summary_text,
-            "remaining": MAX_REQUEST - request_count
-        })
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"要約エラー: {type(e).__name__}: {str(e)}"
-        }), 500
-
-
 @app.route("/api/edit_image", methods=["POST"])
 def edit_image():
-    global request_count
-
-    code = request.form.get("code")
-
-    if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"}), 403
-
-    if request_count >= MAX_REQUEST:
-        return jsonify({"ok": False, "message": "体験は終了しました"}), 403
-
-    image_count_type = (request.form.get("image_count_type") or "").strip()
-    edit_request = (request.form.get("edit_request") or "").strip()
-    finish_type = (request.form.get("finish_type") or "").strip()
-    keep_part = (request.form.get("keep_part") or "").strip()
-    extra = (request.form.get("extra") or "").strip()
-
-    image1 = request.files.get("image1")
-    image2 = request.files.get("image2")
-
-    if not image1 and not image2:
-        return jsonify({"ok": False, "message": "画像を選んでください"}), 400
-
-    if not image_count_type or not edit_request or not finish_type:
-        return jsonify({"ok": False, "message": "内容が足りません"}), 400
-
-    base_image = image1 if image1 else image2
-
     try:
-        final_prompt = build_edit_prompt(
-            image_count_type=image_count_type,
-            edit_request=edit_request,
-            finish_type=finish_type,
-            keep_part=keep_part,
-            extra=extra
-        )
+        image = request.files.get("image1")
+        if not image:
+            return jsonify({"ok": False, "message": "画像なし"}), 400
 
-        image_b64 = edit_image_from_prompt(base_image, final_prompt)
+        prompt = request.form.get("edit_request", "")
 
-        request_count += 1
+        image_b64 = edit_image_from_prompt(image, prompt)
 
         return jsonify({
             "ok": True,
-            "message": "お待たせ、画像を修正したよ🐾",
-            "image_b64": image_b64,
-            "remaining": MAX_REQUEST - request_count
+            "image_b64": image_b64
         })
     except Exception as e:
         traceback.print_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"画像修正エラー: {type(e).__name__}: {str(e)}"
-        }), 500
+        return jsonify({"ok": False, "message": str(e)}), 500
 
 
+# --------------------------------
+# 起動
+# --------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
