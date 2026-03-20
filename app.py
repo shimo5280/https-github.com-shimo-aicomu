@@ -120,7 +120,7 @@ def generate_openai_image_from_prompt(final_prompt: str) -> str:
         result = api_client.images.generate(
             model="gpt-image-1",
             prompt=final_prompt,
-            size="512x512"
+            size="1024x1024"
         )
 
         print("✅ OpenAI images.generate 成功")
@@ -242,17 +242,16 @@ def build_edit_prompt(
     )
 
     if image_type == "写真風":
-     prompt += (
+      prompt += (
         "\nphotorealistic, real photograph, shot with a real camera, "
         "natural lighting, realistic skin texture, high detail, "
         "depth of field, professional photography, "
         "not illustration, not anime, not cartoon\n"
     )
     elif image_type == "イラスト風":
-     prompt += "\nillustration, digital art, painted style\n"
+      prompt += "\nillustration, digital art, painted style\n"
     elif image_type == "漫画風":
-     prompt += "\nmanga style, comic style, line art\n"
-
+      prompt += "\nmanga style, comic style, line art\n"
     return prompt
 
 
