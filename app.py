@@ -153,16 +153,11 @@ def generate_replicate_photo_image(prompt: str) -> str:
 
     try:
         output = replicate.run(
-            "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
+            "stability-ai/sdxl",
             input={
                 "prompt": prompt,
                 "width": 512,
                 "height": 512,
-                "num_outputs": 1,
-                "scheduler": "K_EULER",
-                "num_inference_steps": 20,
-                "guidance_scale": 7.0,
-                "refine": "no_refiner",
             }
         )
 
