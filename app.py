@@ -3,7 +3,6 @@ import io
 import base64
 import traceback
 import requests
-import replicate
 
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
@@ -11,7 +10,6 @@ from openai import OpenAI
 app = Flask(__name__)
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 ACCESS_CODE = "AICOMU2026"
@@ -112,35 +110,6 @@ def generate_openai_image_from_prompt(final_prompt: str) -> str:
         size="1024x1024"
     )
     return result.data[0].b64_json
-
-
-def generate_replicate_photo_image(prompt: str) -> str:
-    if not REPLICATE_API_TOKEN:
-        raise RuntimeError("REPLICATE_API_TOKEN が設定されていません")
-
-    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
-
-    output = replicate.run(
-        "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
-        input={
-            "prompt": prompt,
-            "width": 1024,
-            "height": 1024,
-            "num_outputs": 1,
-            "scheduler": "K_EULER",
-            "num_inference_steps": 30,
-            "guidance_scale": 7.5,
-            "refine": "expert_ensemble_refiner",
-            "high_noise_frac": 0.8,
-        }
-    )
-
-    image_url = output[0] if isinstance(output, list) else output
-
-    response = requests.get(image_url, timeout=60)
-    response.raise_for_status()
-
-    return base64.b64encode(response.content).decode("utf-8")
 
 
 # --------------------------------
@@ -310,10 +279,7 @@ def generate_image():
             extra=extra
         )
 
-        if image_type == "写真風":
-            image_b64 = generate_replicate_photo_image(final_prompt)
-        else:
-            image_b64 = generate_openai_image_from_prompt(final_prompt)
+        image_b64 = generate_openai_image_from_prompt(final_prompt)
 
         request_count += 1
 
