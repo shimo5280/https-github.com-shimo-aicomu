@@ -10,9 +10,10 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
-client = OpenAI(api_key=OPENAI_API_KEY)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "").strip()
+
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 ACCESS_CODE = "AICOMU2026"
 MAX_REQUEST = 20
@@ -23,8 +24,15 @@ def check_access(code):
     return (code or "").strip() == ACCESS_CODE
 
 
+def ensure_openai_client():
+    if client is None:
+        raise RuntimeError("OPENAI_API_KEY が設定されていません")
+    return client
+
+
 def chat_reply(system_text: str, user_text: str) -> str:
-    response = client.responses.create(
+    api_client = ensure_openai_client()
+    response = api_client.responses.create(
         model="gpt-5-mini",
         input=[
             {"role": "system", "content": system_text},
@@ -104,24 +112,38 @@ def generate_image_prompt(
 
     return prompt
 
-def generate_openai_image_from_prompt(final_prompt: str):
+
+def generate_openai_image_from_prompt(final_prompt: str) -> str:
+    api_client = ensure_openai_client()
+
     try:
-        result = client.images.generate(
+        result = api_client.images.generate(
             model="gpt-image-1",
             prompt=final_prompt,
-            size="1024x1024"
+            size="512x512"
         )
+
         print("✅ OpenAI images.generate 成功")
         print("✅ result type:", type(result))
         print("✅ result:", result)
-        return result.data[0].b64_json
 
-    except Exception as e:
-        import traceback
+        if not hasattr(result, "data") or not result.data:
+            raise RuntimeError("OpenAI画像生成レスポンスに data がありません")
+
+        first_item = result.data[0]
+        image_b64 = getattr(first_item, "b64_json", None)
+
+        if not image_b64:
+            raise RuntimeError("OpenAI画像生成レスポンスに b64_json がありません")
+
+        return image_b64
+
+    except Exception:
         print("🔥 OpenAI画像生成エラー開始")
         print(traceback.format_exc())
         print("🔥 OpenAI画像生成エラー終了")
         raise
+
 
 def generate_replicate_photo_image(prompt: str) -> str:
     if not REPLICATE_API_TOKEN:
@@ -129,27 +151,35 @@ def generate_replicate_photo_image(prompt: str) -> str:
 
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
-    output = replicate.run(
-        "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
-        input={
-            "prompt": prompt,
-            "width": 1024,
-            "height": 1024,
-            "num_outputs": 1,
-            "scheduler": "K_EULER",
-            "num_inference_steps": 30,
-            "guidance_scale": 7.5,
-            "refine": "expert_ensemble_refiner",
-            "high_noise_frac": 0.8,
-        }
-    )
+    try:
+        output = replicate.run(
+            "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
+            input={
+                "prompt": prompt,
+                "width": 512,
+                "height": 512,
+                "num_outputs": 1,
+                "scheduler": "K_EULER",
+                "num_inference_steps": 20,
+                "guidance_scale": 7.0,
+                "refine": "no_refiner",
+            }
+        )
 
-    image_url = output[0] if isinstance(output, list) else output
+        image_url = output[0] if isinstance(output, list) else output
+        if not image_url:
+            raise RuntimeError("Replicate の画像URLが取得できませんでした")
 
-    response = requests.get(image_url, timeout=60)
-    response.raise_for_status()
+        response = requests.get(image_url, timeout=60)
+        response.raise_for_status()
 
-    return base64.b64encode(response.content).decode("utf-8")
+        return base64.b64encode(response.content).decode("utf-8")
+
+    except Exception:
+        print("🔥 Replicate画像生成エラー開始")
+        print(traceback.format_exc())
+        print("🔥 Replicate画像生成エラー終了")
+        raise
 
 
 # --------------------------------
@@ -231,18 +261,37 @@ def build_edit_prompt(
 
 
 def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
-    image_bytes = image_file_obj.read()
-    image_name = image_file_obj.filename or "upload.png"
-    image_stream = io.BytesIO(image_bytes)
-    image_stream.name = image_name
+    api_client = ensure_openai_client()
 
-    result = client.images.edit(
-        model="gpt-image-1",
-        image=image_stream,
-        prompt=final_prompt,
-        size="1024x1024"
-    )
-    return result.data[0].b64_json
+    try:
+        image_bytes = image_file_obj.read()
+        image_name = image_file_obj.filename or "upload.png"
+        image_stream = io.BytesIO(image_bytes)
+        image_stream.name = image_name
+
+        result = api_client.images.edit(
+            model="gpt-image-1",
+            image=image_stream,
+            prompt=final_prompt,
+            size="512x512"
+        )
+
+        if not hasattr(result, "data") or not result.data:
+            raise RuntimeError("OpenAI画像修正レスポンスに data がありません")
+
+        first_item = result.data[0]
+        image_b64 = getattr(first_item, "b64_json", None)
+
+        if not image_b64:
+            raise RuntimeError("OpenAI画像修正レスポンスに b64_json がありません")
+
+        return image_b64
+
+    except Exception:
+        print("🔥 OpenAI画像修正エラー開始")
+        print(traceback.format_exc())
+        print("🔥 OpenAI画像修正エラー終了")
+        raise
 
 
 @app.route("/")
@@ -283,7 +332,8 @@ def generate_summary():
             "remaining": MAX_REQUEST - request_count
         })
     except Exception as e:
-        traceback.print_exc()
+        print("🔥 generate_summary エラー")
+        print(traceback.format_exc())
         return jsonify({
             "ok": False,
             "message": f"要約エラー: {type(e).__name__}: {str(e)}"
@@ -319,6 +369,10 @@ def generate_image():
             extra=extra
         )
 
+        print("✅ generate_image 開始")
+        print("✅ image_type:", image_type)
+        print("✅ final_prompt:", final_prompt)
+
         if image_type == "写真風":
             image_b64 = generate_replicate_photo_image(final_prompt)
         else:
@@ -333,7 +387,8 @@ def generate_image():
             "remaining": MAX_REQUEST - request_count
         })
     except Exception as e:
-        traceback.print_exc()
+        print("🔥 generate_image エラー")
+        print(traceback.format_exc())
         return jsonify({
             "ok": False,
             "message": f"画像生成エラー: {type(e).__name__}: {str(e)}"
@@ -380,7 +435,8 @@ def edit_summary():
             "remaining": MAX_REQUEST - request_count
         })
     except Exception as e:
-        traceback.print_exc()
+        print("🔥 edit_summary エラー")
+        print(traceback.format_exc())
         return jsonify({
             "ok": False,
             "message": f"要約エラー: {type(e).__name__}: {str(e)}"
@@ -436,7 +492,8 @@ def edit_image():
             "remaining": MAX_REQUEST - request_count
         })
     except Exception as e:
-        traceback.print_exc()
+        print("🔥 edit_image エラー")
+        print(traceback.format_exc())
         return jsonify({
             "ok": False,
             "message": f"画像修正エラー: {type(e).__name__}: {str(e)}"
@@ -444,4 +501,4 @@ def edit_image():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
