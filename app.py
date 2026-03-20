@@ -43,74 +43,79 @@ def chat_reply(system_text: str, user_text: str) -> str:
 
 
 # --------------------------------
-# A 画像生成
+# A 生成用：AI相談
 # --------------------------------
-def summarize_generate_answers(
+def ask_generate_followup(
     purpose: str,
-    style: str,
-    image_type: str,
-    extra: str,
+    main_subject: str,
+    turn: int,
+    history: str = "",
 ) -> str:
     system_text = (
-        "あなたは親しみやすい相棒タイプの日本語AIです。"
-        "敬語すぎる話し方は禁止です。"
-        "自然でやわらかい、少しくだけた話し方にしてください。"
-        "返答は短めにしてください。"
-        "最後に🐾を付けてください。"
-        "あなたの役割は、ユーザーの画像生成条件を整理して、"
-        "軽いアドバイスを1つだけ添えることです。"
-        "新しい質問はしてはいけません。"
-        "追加の提案は禁止です。"
-        "ボタン操作の説明は禁止です。"
-        "アドバイスは必ず1つだけにしてください。"
+        "あなたは画像生成の相談役AIです。"
+        "自然でやわらかい日本語で話してください。"
+        "敬語すぎない言い方にしてください。"
+        "1回につき質問は1つだけにしてください。"
+        "長い説明は禁止です。"
+        "回答は短めにしてください。"
+        "語尾に『🐾』をつけてください。"
+        "ユーザーが答えやすいように、例を3つくらい入れてください。"
+        "今は画像生成プロンプトを作るための相談中です。"
+        "用途と主役をもとに、次に必要なことを1つだけ聞いてください。"
+        "turn=2 なら背景について聞いてください。"
+        "turn=3 なら全体の雰囲気について聞いてください。"
+        "turn=4 なら表現方法（写真風、イラスト風、漫画風 など）について聞いてください。"
+        "turn=5 なら質問せず、ここまでの内容を自然に短くまとめて、"
+        "『追加したいことや気になる点があれば、できるだけ具体的に書いてください。具体的に書いてくれると、よりイメージに近づくよ。🐾』"
+        "で締めてください。"
+        "turnが5以上なら新しい提案やアドバイスは禁止です。"
     )
 
     user_text = (
         f"用途: {purpose}\n"
-        f"系統: {style}\n"
-        f"画像タイプ: {image_type}\n"
-        f"追加要素: {extra if extra else 'なし'}\n\n"
-        "この内容を自然に整理して、軽いアドバイスを1つだけ付けてください。"
+        f"主役: {main_subject}\n"
+        f"turn: {turn}\n"
+        f"これまでの会話: {history if history else 'なし'}\n\n"
+        "上の条件に従って、今必要な質問またはまとめを返してください。"
     )
 
     return chat_reply(system_text, user_text)
 
 
-def generate_image_prompt(
+def build_generate_prompt_with_ai(
     purpose: str,
-    style: str,
-    image_type: str,
-    extra: str,
+    main_subject: str,
+    background_text: str,
+    mood_text: str,
+    style_text: str,
+    final_detail: str,
 ) -> str:
-    prompt = (
+    system_text = (
+        "あなたは画像生成用の最終プロンプトを作るAIです。"
+        "出力は画像生成に使う内容のみで、会話文は禁止です。"
+        "説明、感想、アドバイスは禁止です。"
+        "日本語でまとめてもよいですが、画像生成向けに具体的で分かりやすく整理してください。"
+        "主役は絶対にぶらさないでください。"
+        "用途、背景、雰囲気、表現、追加詳細を統合して、"
+        "画像生成に使いやすい完成形にしてください。"
+        "追加詳細がある場合は最優先で反映してください。"
+        "用途がホームページ背景やバナー背景なら、"
+        "余白を多めにし、テキストを載せやすい構図を意識してください。"
+        "主役が背景向きのモチーフでない限り、勝手に別の人物や別の主役を追加しないでください。"
+        "出力は1つの完成された生成指示だけにしてください。"
+    )
+
+    user_text = (
         f"用途: {purpose}\n"
-        f"系統: {style}\n"
-        f"画像タイプ: {image_type}\n"
+        f"主役: {main_subject}\n"
+        f"背景: {background_text if background_text else '指定なし'}\n"
+        f"雰囲気: {mood_text if mood_text else '指定なし'}\n"
+        f"表現: {style_text if style_text else '指定なし'}\n"
+        f"追加詳細: {final_detail if final_detail else 'なし'}\n\n"
+        "この内容をもとに、最終的な画像生成用プロンプトを作ってください。"
     )
 
-    if extra:
-        prompt += f"追加要素: {extra}\n"
-
-    if image_type == "写真風":
-        prompt += (
-            "\nphotorealistic, real photograph, shot with a real camera, "
-            "natural lighting, realistic skin texture, high detail, "
-            "depth of field, professional photography, "
-            "not illustration, not anime, not cartoon\n"
-        )
-    elif image_type == "イラスト風":
-        prompt += "\nillustration, digital art, painted style\n"
-    elif image_type == "漫画風":
-        prompt += "\nmanga style, comic style, line art\n"
-
-    prompt += (
-        "\n上の内容を満たす画像を生成してください。"
-        "用途に合う見せ方を優先してください。"
-        "系統と画像タイプをしっかり反映してください。"
-        "子供っぽい印象になりすぎないようにしてください。"
-    )
-
-    return prompt
+    return chat_reply(system_text, user_text)
 
 
 def generate_openai_image_from_prompt(final_prompt: str) -> str:
@@ -122,10 +127,6 @@ def generate_openai_image_from_prompt(final_prompt: str) -> str:
             prompt=final_prompt,
             size="1024x1024"
         )
-
-        print("✅ OpenAI images.generate 成功")
-        print("✅ result type:", type(result))
-        print("✅ result:", result)
 
         if not hasattr(result, "data") or not result.data:
             raise RuntimeError("OpenAI画像生成レスポンスに data がありません")
@@ -178,7 +179,7 @@ def generate_replicate_photo_image(prompt: str) -> str:
 
 
 # --------------------------------
-# B 画像修正
+# B 修正
 # --------------------------------
 def summarize_edit_answers(
     image_count_type: str,
@@ -241,17 +242,17 @@ def build_edit_prompt(
         "・仕上がりスタイルを反映してください。\n"
     )
 
-    if image_type == "写真風":
-      prompt += (
-        "\nphotorealistic, real photograph, shot with a real camera, "
-        "natural lighting, realistic skin texture, high detail, "
-        "depth of field, professional photography, "
-        "not illustration, not anime, not cartoon\n"
-    )
-    elif image_type == "イラスト風":
-      prompt += "\nillustration, digital art, painted style\n"
-    elif image_type == "漫画風":
-      prompt += "\nmanga style, comic style, line art\n"
+    if finish_type == "写真風":
+        prompt += (
+            "\nphotorealistic, real photograph, natural lighting, "
+            "realistic skin texture, high detail, "
+            "not illustration, not anime, not cartoon\n"
+        )
+    elif finish_type == "イラスト風":
+        prompt += "\nillustration, digital art, painted style\n"
+    elif finish_type == "漫画風":
+        prompt += "\nmanga style, comic style, line art\n"
+
     return prompt
 
 
@@ -268,7 +269,7 @@ def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
             model="gpt-image-1",
             image=image_stream,
             prompt=final_prompt,
-            size="512x512"
+            size="1024x1024"
         )
 
         if not hasattr(result, "data") or not result.data:
@@ -295,10 +296,10 @@ def index():
 
 
 # --------------------------------
-# A 生成
+# A 相談開始
 # --------------------------------
-@app.route("/api/generate_summary", methods=["POST"])
-def generate_summary():
+@app.route("/api/generate_consult", methods=["POST"])
+def generate_consult():
     data = request.get_json(silent=True) or {}
     code = data.get("code")
 
@@ -306,34 +307,32 @@ def generate_summary():
         return jsonify({"ok": False, "message": "コードが違います"}), 403
 
     purpose = (data.get("purpose") or "").strip()
-    style = (data.get("style") or "").strip()
-    image_type = (data.get("image_type") or "").strip()
-    extra = (data.get("extra") or "").strip()
+    main_subject = (data.get("main_subject") or "").strip()
+    turn = int(data.get("turn") or 2)
+    history = (data.get("history") or "").strip()
 
-    if not purpose or not style or not image_type:
+    if not purpose or not main_subject:
         return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
     try:
-        summary_text = summarize_generate_answers(
+        message = ask_generate_followup(
             purpose=purpose,
-            style=style,
-            image_type=image_type,
-            extra=extra
+            main_subject=main_subject,
+            turn=turn,
+            history=history
         )
-
-        return jsonify({
-            "ok": True,
-            "message": summary_text,
-            "remaining": MAX_REQUEST - request_count
-        })
+        return jsonify({"ok": True, "message": message})
     except Exception as e:
-        print("🔥 generate_summary エラー")
         print(traceback.format_exc())
         return jsonify({
             "ok": False,
-            "message": f"要約エラー: {type(e).__name__}: {str(e)}"
+            "message": f"相談エラー: {type(e).__name__}: {str(e)}"
         }), 500
 
+
+# --------------------------------
+# A 生成
+# --------------------------------
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
     global request_count
@@ -348,33 +347,36 @@ def generate_image():
         return jsonify({"ok": False, "message": "体験は終了しました"}), 403
 
     purpose = (data.get("purpose") or "").strip()
-    style = (data.get("style") or "").strip()
-    image_type = (data.get("image_type") or "").strip()
-    extra = (data.get("extra") or "").strip()
+    main_subject = (data.get("main_subject") or "").strip()
+    background_text = (data.get("background_text") or "").strip()
+    mood_text = (data.get("mood_text") or "").strip()
+    style_text = (data.get("style_text") or "").strip()
+    final_detail = (data.get("final_detail") or "").strip()
 
-    if not purpose or not style or not image_type:
+    if not purpose or not main_subject:
         return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
     try:
-        final_prompt = generate_image_prompt(
+        final_prompt = build_generate_prompt_with_ai(
             purpose=purpose,
-            style=style,
-            image_type=image_type,
-            extra=extra
+            main_subject=main_subject,
+            background_text=background_text,
+            mood_text=mood_text,
+            style_text=style_text,
+            final_detail=final_detail
         )
 
         print("✅ generate_image 開始")
-        print("✅ image_type:", image_type)
         print("✅ final_prompt:", final_prompt)
 
-        # いったん全部 OpenAI に統一
+        # まずは安定優先で OpenAI のみ
         image_b64 = generate_openai_image_from_prompt(final_prompt)
 
         request_count += 1
 
         return jsonify({
             "ok": True,
-            "message": "お待たせ、画像を生成したよ🐾",
+            "message": "お待たせ、画像を生成したよ。🐾",
             "image_b64": image_b64,
             "remaining": MAX_REQUEST - request_count
         })
@@ -385,6 +387,8 @@ def generate_image():
             "ok": False,
             "message": f"画像生成エラー: {type(e).__name__}: {str(e)}"
         }), 500
+
+
 # --------------------------------
 # B 修正
 # --------------------------------
@@ -425,7 +429,6 @@ def edit_summary():
             "remaining": MAX_REQUEST - request_count
         })
     except Exception as e:
-        print("🔥 edit_summary エラー")
         print(traceback.format_exc())
         return jsonify({
             "ok": False,
@@ -477,12 +480,11 @@ def edit_image():
 
         return jsonify({
             "ok": True,
-            "message": "お待たせ、画像を修正したよ🐾",
+            "message": "お待たせ、画像を修正したよ。🐾",
             "image_b64": image_b64,
             "remaining": MAX_REQUEST - request_count
         })
     except Exception as e:
-        print("🔥 edit_image エラー")
         print(traceback.format_exc())
         return jsonify({
             "ok": False,
