@@ -213,43 +213,11 @@ def index():
 # --------------------------------
 # A 生成
 # --------------------------------
-@app.route("/api/generate_summary", methods=["POST"])
-def generate_summary():
-    data = request.get_json(silent=True) or {}
-    code = data.get("code")
-
-    if not check_access(code):
-        return jsonify({"ok": False, "message": "コードが違います"}), 403
-
-    purpose = (data.get("purpose") or "").strip()
-    style = (data.get("style") or "").strip()
-    image_type = (data.get("image_type") or "").strip()
-    extra = (data.get("extra") or "").strip()
-
-    if not purpose or not style or not image_type:
-        return jsonify({"ok": False, "message": "内容が足りません"}), 400
-
-    try:
-        summary_text = summarize_generate_answers(
-            purpose=purpose,
-            style=style,
-            image_type=image_type,
-            extra=extra
-        )
-
-        return jsonify({
-            "ok": True,
-            "message": summary_text,
-            "remaining": MAX_REQUEST - request_count
-        })
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"要約エラー: {type(e).__name__}: {str(e)}"
-        }), 500
-
-
+# 
+@app.route("/api/generate_consult", methods=["POST"])
+def generate_consult():
+    return generate_summary()
+ 
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
     global request_count
