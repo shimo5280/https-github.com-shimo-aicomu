@@ -167,19 +167,19 @@ def generate_replicate_image(prompt: str) -> str:
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
     output = replicate.run(
-        "stability-ai/sdxl",
-        input={
-            "prompt": prompt,
-            "width": 1024,
-            "height": 1024,
-            "num_outputs": 1,
-            "scheduler": "K_EULER",
-            "num_inference_steps": 30,
-            "guidance_scale": 7.5,
-            "refine": "expert_ensemble_refiner",
-            "high_noise_frac": 0.8,
-        }
-    )
+    "stability-ai/sdxl:latest",
+    input={
+        "prompt": prompt,
+        "width": 1024,
+        "height": 1024,
+        "num_outputs": 1,
+        "scheduler": "K_EULER",
+        "num_inference_steps": 30,
+        "guidance_scale": 7.5,
+        "refine": "expert_ensemble_refiner",
+        "high_noise_frac": 0.8,
+    }
+)
 
     if isinstance(output, list) and len(output) > 0:
         image_url = output[0]
