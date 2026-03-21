@@ -167,7 +167,7 @@ def generate_replicate_image(prompt: str) -> str:
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
     output = replicate.run(
-        "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
+        "stability-ai/sdxl",
         input={
             "prompt": prompt,
             "width": 1024,
