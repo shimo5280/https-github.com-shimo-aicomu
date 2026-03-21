@@ -520,7 +520,7 @@ const res = await fetch("/api/image", {
     generateStage = "ask-purpose";
     addBubble("user", "A");
     addBubble("ai", "画像生成だね🐾");
-    addBubble("ai", "まず、何に使う画像を作りたい？\n（例：ホームページ背景、SNS投稿、アイコン など）");
+    addBubble("ai", "まず、どう言う画像を作りたいージ背景、SNS、アイコン、観賞用など")
 
     inputBox.style.display = "flex";
     cameraArea.style.display = "none";
