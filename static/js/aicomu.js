@@ -519,7 +519,7 @@ const res = await fetch("/api/image", {
 
     generateStage = "ask-purpose";
     addBubble("user", "A");
-    addBubble("ai", "画像生成だね。🐾");
+    addBubble("ai", "画像生成だね🐾");
     addBubble("ai", "まず、何に使う画像を作りたい？\n（例：ホームページ背景、SNS投稿、アイコン など）");
 
     inputBox.style.display = "flex";
@@ -573,7 +573,7 @@ const res = await fetch("/api/image", {
     // -----------------------------
     if (currentMode === "generate") {
       if (!text) {
-        addBubble("ai", "内容を入力してね🐾");
+        addBubble("ai", "どんな画像をつくりたい？🐾");
         setInputsEnabled(true);
         return;
       }
@@ -587,7 +587,7 @@ const res = await fetch("/api/image", {
 
         addBubble(
           "ai",
-          "次に、どんな画像にしたい？\n「かわいい猫」「綺麗な虹」みたいに、主役になるものを教えてね🐾"
+          "形容詞〇〇＋主役〇〇\n例：「かわいい猫」「綺麗な女性」「格好いい車」など、どんな感じの主役にしたいかを教えてね🐾"
         );
 
         inputUser.value = "";
@@ -664,7 +664,7 @@ const res = await fetch("/api/image", {
             addBubble("ai", "キャンセルしたよ🐾もう一回最初から考えたい時は送ってね。🐾");
             resetGenerateFlow();
             generateStage = "ask-purpose";
-            addBubble("ai", "まず、何に使う画像を作りたい？\n（例：ホームページ背景、SNS投稿、アイコン など）");
+            addBubble("ai", "まず、どう言う目的で作りたい？（例：ホームページ背景、SNS、アイコン、観賞用など")
             setInputsEnabled(true);
             inputUser.focus();
           }
@@ -720,8 +720,7 @@ const res = await fetch("/api/image", {
 
         addBubble(
           "ai",
-          "仕上がりはどんな感じがいい？\n（例：写真風、イラスト風、漫画風 など）🐾"
-        );
+          "仕上がりはどんな感じがいい？\n（例：写真風、イラスト風、漫画風、絵画風など" );
 
         inputUser.value = "";
         setInputsEnabled(true);
