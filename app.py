@@ -15,7 +15,6 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
-
 os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
 
@@ -36,20 +35,9 @@ def consult():
         data = request.get_json()
         mode = data.get("mode")
 
-        system = "フレンドリーに短く答えて。最後に🐾をつける。"
+        system = "短くフレンドリーに答える。最後に🐾"
 
-        if mode == "generate":
-            prompt = f"""
-用途: {data.get("purpose")}
-主役: {data.get("main_subject")}
-履歴: {data.get("history")}
-"""
-
-        else:
-            prompt = f"""
-修正内容: {data.get("edit_request")}
-仕上がり: {data.get("finish_type")}
-"""
+        prompt = f"{data}"
 
         res = client.responses.create(
             model="gpt-4.1-mini",
@@ -69,12 +57,11 @@ def consult():
 
 
 # =========================
-# 画像API（A + B）
+# 画像API
 # =========================
 @app.route("/api/image", methods=["POST"])
 def image_api():
     try:
-        # JSON or Form対応
         if request.is_json:
             data = request.get_json()
             mode = data.get("mode")
@@ -83,7 +70,7 @@ def image_api():
             mode = data.get("mode")
 
         # =========================
-        # A 画像生成（Replicate）
+        # A 画像生成
         # =========================
         if mode == "generate":
             prompt = str(data.get("final_detail", ""))
@@ -108,9 +95,8 @@ def image_api():
                 "image_b64": image_b64
             })
 
-
         # =========================
-        # B 画像修正（Replicate）
+        # B 画像修正
         # =========================
         elif mode == "edit":
             image1 = request.files.get("image1")
@@ -121,7 +107,17 @@ def image_api():
             keep_part = data.get("keep_part", "")
             extra = data.get("extra", "")
 
-            final_prompt = f"{edit_request}。仕上がりは{finish_type}。残す部分は{keep_part}。{extra}"
+            final_prompt = f"""
+元の画像を必ずベースにして修正してください。
+
+変更内容: {edit_request}
+仕上がり: {finish_type}
+追加: {extra}
+
+重要:
+人物・顔・構図・ポーズは絶対に維持してください。
+指定した部分だけ変更してください。
+"""
 
             if image2:
                 output = replicate.run(
@@ -158,7 +154,10 @@ def image_api():
         return jsonify({"ok": False})
 
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)})
+        return jsonify({
+            "ok": False,
+            "error": str(e)
+        })
 
 
 # =========================
