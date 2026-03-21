@@ -289,22 +289,50 @@ def build_edit_prompt(
 # =========================
 # OpenAI 画像修正
 # =========================
-def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
-    require_openai_key()
+def edit_image_with_replicate(image1, image2, final_prompt: str) -> str:
+    require_replicate_key()
+    os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
-    image_bytes = image_file_obj.read()
-    image_name = image_file_obj.filename or "upload.png"
-    image_stream = io.BytesIO(image_bytes)
-    image_stream.name = image_name
+    # Replicate はローカル file object を入力に使える
+    # 1枚なら single-image、2枚なら multi-image に分ける
+    if image2:
+        image1.stream.seek(0)
+        image2.stream.seek(0)
 
-    result = client.images.edit(
-        model="gpt-image-1",
-        image=image_stream,
-        prompt=final_prompt,
-        size="1024x1024"
-    )
-    return result.data[0].b64_json
+        output = replicate.run(
+            "flux-kontext-apps/multi-image-list",
+            input={
+                "images": [image1.stream, image2.stream],
+                "prompt": final_prompt
+            }
+        )
+    else:
+        image1.stream.seek(0)
 
+        output = replicate.run(
+            "prunaai/flux-kontext-fast",
+            input={
+                "input_image": image1.stream,
+                "prompt": final_prompt
+            }
+        )
+
+    if isinstance(output, list) and len(output) > 0:
+        result_file = output[0]
+    else:
+        result_file = output
+
+    if not result_file:
+        raise RuntimeError("Replicateの修正画像取得に失敗")
+
+    if hasattr(result_file, "read"):
+        content = result_file.read()
+    else:
+        response = requests.get(str(result_file), timeout=120)
+        response.raise_for_status()
+        content = response.content
+
+    return base64.b64encode(content).decode("utf-8")
 
 # =========================
 # ルート
@@ -483,7 +511,7 @@ def image_api():
                 extra=extra
             )
 
-            image_b64 = edit_image_from_prompt(base_image, final_prompt)
+            image_b64 = edit_image_with_replicate(image1, image2, final_prompt)
             request_count += 1
 
             return jsonify({
