@@ -5,16 +5,19 @@ import traceback
 import requests
 import replicate
 
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 
-app = Flask(__name__)
+load_dotenv()
+
+app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # =========================
 # 環境変数
 # =========================
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "").strip()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -33,7 +36,19 @@ def check_access(code):
     return (code or "").strip() == ACCESS_CODE
 
 
+def require_openai_key():
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY が設定されていません")
+
+
+def require_replicate_key():
+    if not REPLICATE_API_TOKEN:
+        raise RuntimeError("REPLICATE_API_TOKEN が設定されていません")
+
+
 def chat_reply(system_text: str, user_text: str) -> str:
+    require_openai_key()
+
     response = client.responses.create(
         model="gpt-4.1-mini",
         input=[
@@ -73,15 +88,15 @@ def build_generate_consult_reply(
     )
 
     if turn == 2:
-        ask = "背景や場所はどんな感じにしたい？"
+        ask = "背景や場所はどんな感じにしたい？そのままでもいいよ🐾"
     elif turn == 3:
-        ask = "全体の雰囲気はどんな感じにしたい？"
+        ask = "全体の雰囲気はどんな感じにしたい？なるべく具体的ね🐾"
     elif turn == 4:
-        ask = "表現はどんな感じがいい？ たとえば写真風、やわらかい感じ、幻想的、などだよ。"
+        ask = "表現はどんな感じがいい？ たとえば写真風、やわらかい感じ、幻想的、などだよ🐾"
     elif turn == 5:
-        ask = "最後に追加したい細かい要素があれば教えてね。なければ『なし』で大丈夫だよ。"
+        ask = "最後に追加したい細かい要素があれば教えてね。なければ『お任せ』でいいよ🐾"
     else:
-        ask = "続きを教えてね。"
+        ask = "続きを教えてね🐾"
 
     user_text = (
         f"用途: {purpose}\n"
@@ -161,8 +176,7 @@ def build_generate_prompt(
 # Replicate 画像生成
 # =========================
 def generate_replicate_image(prompt: str) -> str:
-    if not REPLICATE_API_TOKEN:
-        raise RuntimeError("REPLICATE_API_TOKEN が設定されていません")
+    require_replicate_key()
 
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
@@ -193,6 +207,7 @@ def generate_replicate_image(prompt: str) -> str:
     response.raise_for_status()
 
     return base64.b64encode(response.content).decode("utf-8")
+
 
 # =========================
 # B 修正相談（OpenAI）
@@ -275,6 +290,8 @@ def build_edit_prompt(
 # OpenAI 画像修正
 # =========================
 def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
+    require_openai_key()
+
     image_bytes = image_file_obj.read()
     image_name = image_file_obj.filename or "upload.png"
     image_stream = io.BytesIO(image_bytes)
@@ -339,6 +356,9 @@ def consult():
             })
 
         elif mode == "edit":
+            if form is None:
+                return jsonify({"ok": False, "message": "フォーム送信が必要です"}), 400
+
             code = form.get("code")
 
             if not check_access(code):
@@ -427,6 +447,9 @@ def image_api():
             })
 
         elif mode == "edit":
+            if form is None:
+                return jsonify({"ok": False, "message": "フォーム送信が必要です"}), 400
+
             code = form.get("code")
 
             if not check_access(code):
