@@ -345,20 +345,20 @@ document.addEventListener("DOMContentLoaded", function () {
     const loading = addFootprintLoadingBubble();
 
     try {
-      const res = await fetch("/api/generate_consult", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          purpose: generateData.purpose,
-          main_subject: generateData.mainSubject,
-          turn: turn,
-          history: generateHistory.join(" / ")
-        })
-      });
-
+     const res = await fetch("/api/consult", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    mode: "generate",
+    code: codeInput.value.trim(),
+    purpose: generateData.purpose,
+    main_subject: generateData.mainSubject,
+    turn: turn,
+    history: generateHistory.join(" / ")
+  })
+});
       const data = await res.json();
 
       if (data.ok) {
@@ -376,21 +376,22 @@ document.addEventListener("DOMContentLoaded", function () {
     const loading = addFootprintLoadingBubble();
 
     try {
-      const res = await fetch("/api/generate_image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          purpose: generateData.purpose,
-          main_subject: generateData.mainSubject,
-          background_text: generateData.backgroundText,
-          mood_text: generateData.moodText,
-          style_text: generateData.styleText,
-          final_detail: generateData.finalDetail
-        })
-      });
+     const res = await fetch("/api/image", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    mode: "generate",
+    code: codeInput.value.trim(),
+    purpose: generateData.purpose,
+    main_subject: generateData.mainSubject,
+    background_text: generateData.backgroundText,
+    mood_text: generateData.moodText,
+    style_text: generateData.styleText,
+    final_detail: generateData.finalDetail
+  })
+});
 
       const data = await res.json();
 
@@ -423,20 +424,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     try {
       const formData = new FormData();
-      formData.append("code", codeInput.value.trim());
-      formData.append("image_count_type", editData.imageCountType);
-      formData.append("edit_request", editData.editRequest);
-      formData.append("finish_type", editData.finishType);
-      formData.append("keep_part", editData.keepPart);
-      formData.append("extra", editData.extra);
+formData.append("mode", "edit");
+formData.append("code", codeInput.value.trim());
+formData.append("image_count_type", editData.imageCountType);
+formData.append("edit_request", editData.editRequest);
+formData.append("finish_type", editData.finishType);
+formData.append("keep_part", editData.keepPart);
+formData.append("extra", editData.extra);
 
-      if (file1) formData.append("image1", file1);
-      if (file2) formData.append("image2", file2);
+if (file1) formData.append("image1", file1);
+if (file2) formData.append("image2", file2);
 
-      const res = await fetch("/api/edit_image", {
-        method: "POST",
-        body: formData
-      });
+const res = await fetch("/api/image", {
+  method: "POST",
+  body: formData
+});
 
       const data = await res.json();
 
