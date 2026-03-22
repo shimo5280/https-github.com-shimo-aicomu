@@ -680,136 +680,125 @@ const res = await fetch("/api/image", {
     // -----------------------------
     // B = 画像修正
     // -----------------------------
-    if (currentMode === "edit") {
-      if (editStage === "wait-images") {
-        if (!file1 && !file2) {
-          addBubble("ai", "画像を1枚か2枚選んでね🐾");
-          setInputsEnabled(true);
-          return;
-        }
-
-        const files = [];
-        if (file1) files.push(file1);
-        if (file2) files.push(file2);
-
-        addImageBubble("user", files, "");
-
-        editData.imageCountType = file2 ? "2枚" : "1枚";
-        editStage = "ask-request";
-
-        addBubble(
-          "ai",
-          "画像をどのように修正したいか？🐾\n1枚の場合：障害物を取り除きたい、カラーにしたい、背景を変えたい など\n2枚の場合：この服をこの人に着せたい、この画像どうしを組み合わせたい など🐾"
-        );
-
-        inputUser.value = "";
-        setInputsEnabled(true);
-        inputUser.focus();
-        return;
-      }
-
-      if (editStage === "ask-request") {
-        if (!text) {
-          addBubble("ai", "どう修正したいか教えてね🐾");
-          setInputsEnabled(true);
-          return;
-        }
-
-        editData.editRequest = text;
-        editStage = "ask-finish";
-
-        addBubble(
-          "ai",
-          "仕上がりはどんな感じがいい？\n（例：写真風、イラスト風、漫画風、絵画風など" );
-
-        inputUser.value = "";
-        setInputsEnabled(true);
-        inputUser.focus();
-        return;
-      }
-
-      if (editStage === "ask-finish") {
-        if (!text) {
-          addBubble("ai", "仕上がりの感じを教えてね🐾");
-          setInputsEnabled(true);
-          return;
-        }
-
-        editData.finishType = text;
-        editStage = "ask-keep-part";
-
-        addBubble(
-          "ai",
-          "元の画像で残したい部分はある？\n（例：顔はそのまま、人物はそのまま、ポーズはそのまま、なし）🐾"
-        );
-
-        inputUser.value = "";
-        setInputsEnabled(true);
-        inputUser.focus();
-        return;
-      }
-
-      if (editStage === "ask-keep-part") {
-        if (!text) {
-          addBubble("ai", "残したい部分がなければ『なし』で大丈夫だよ🐾");
-          setInputsEnabled(true);
-          return;
-        }
-
-        editData.keepPart = text === "なし" ? "" : text;
-        editStage = "ask-extra";
-
-        addBubble(
-          "ai",
-          "どこを直したいか、できるだけ具体的に書いてね🐾\n具体的に書いてくれると、よりイメージに近づくよ🐾"
-        );
-
-        inputUser.value = "";
-        setInputsEnabled(true);
-        inputUser.focus();
-        return;
-      }
-
-      if (editStage === "ask-extra") {
-        if (!text) {
-          addBubble("ai", "追加したいことがなければ『なし』で大丈夫だよ🐾");
-          setInputsEnabled(true);
-          return;
-        }
-
-        editData.extra = text === "なし" ? "" : text;
-        editStage = "confirm";
-
-        addActionButtons(
-          "修正する",
-          handleEditFinal,
-          function () {
-            addBubble("ai", "キャンセルしたよ🐾もう一回修正内容を変えたい時は送ってね🐾");
-            resetEditFlow();
-            editStage = "wait-images";
-            clearPreview();
-            addBubble("ai", "もう一回、画像を1枚か2枚選んで送ってね。🐾");
-            setInputsEnabled(true);
-            inputUser.focus();
-          }
-        );
-
-        inputUser.value = "";
-        setInputsEnabled(true);
-        inputUser.focus();
-        return;
-      }
+   if (currentMode === "edit") {
+  if (editStage === "wait-images") {
+    if (!file1 && !file2) {
+      addBubble("ai", "画像を1枚か2枚選んでね🐾");
+      setInputsEnabled(true);
+      return;
     }
 
+    const files = [];
+    if (file1) files.push(file1);
+    if (file2) files.push(file2);
+
+    addImageBubble("user", files, "");
+
+    editData.imageCountType = file2 ? "2枚" : "1枚";
+    editStage = "ask-request";
+
+    addBubble(
+      "ai",
+      "画像をどのように修正したいか？🐾\n1枚の場合：障害物を取り除きたい、色合いを変えたい など\n2枚の場合：2枚をどう組み合わせて修整したいか？を具体的に言ってね🐾"
+    );
+
+    inputUser.value = "";
     setInputsEnabled(true);
-  });
+    inputUser.focus();
+    return;
+  }
 
-  inputUser.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      sendBtn.click();
+  if (editStage === "ask-request") {
+    if (!text) {
+      addBubble("ai", "どう修正したいか教えてね🐾");
+      setInputsEnabled(true);
+      return;
     }
-  });
 
-  addBubble("ai", "ようこそAIコミュへ🐾");
-  addBubble("ai", "コードを入力してOKを押してね🐾");
+    editData.editRequest = text;
+    editStage = "ask-finish";
+
+    addBubble(
+      "ai",
+      "仕上がりはどんな感じがいい？\n（例：写真風、イラスト風、漫画風、絵画風など）"
+    );
+
+    inputUser.value = "";
+    setInputsEnabled(true);
+    inputUser.focus();
+    return;
+  }
+
+  if (editStage === "ask-finish") {
+    if (!text) {
+      addBubble("ai", "背景はどうしたい？\n例：テーマパーク、観光地、海、そのままなど🐾");
+      setInputsEnabled(true);
+      return;
+    }
+
+    editData.finishType = text;
+    editStage = "ask-keep-part";
+
+    addBubble(
+      "ai",
+      "勝手に変えてほしくないところを言ってね？🐾"
+    );
+
+    inputUser.value = "";
+    setInputsEnabled(true);
+    inputUser.focus();
+    return;
+  }
+
+  if (editStage === "ask-keep-part") {
+    if (!text) {
+      addBubble("ai", "変えてほしくないところがなければ『なし』で大丈夫だよ🐾");
+      setInputsEnabled(true);
+      return;
+    }
+
+    editData.extra = text === "なし" ? "" : text;
+    editStage = "confirm";
+
+    addBubble(
+      "ai",
+      "修正内容をまとめるね🐾\n" +
+      "画像枚数：" + editData.imageCountType + "\n" +
+      "修正内容：" + editData.editRequest + "\n" +
+      "仕上がり：" + editData.finishType + "\n" +
+      "変えてほしくないところ：" + (editData.extra || "なし")
+    );
+
+    addActionButtons(
+      "修正する",
+      handleEditFinal,
+      function () {
+        addBubble("ai", "キャンセルしたよ🐾もう一回修正内容を変えたい時は送ってね🐾");
+        resetEditFlow();
+        editStage = "wait-images";
+        clearPreview();
+        addBubble("ai", "もう一回、画像を1枚か2枚選んで送ってね。🐾");
+        setInputsEnabled(true);
+        inputUser.focus();
+      }
+    );
+
+    inputUser.value = "";
+    setInputsEnabled(true);
+    inputUser.focus();
+    return;
+  }
+}
+
+setInputsEnabled(true);
 });
+
+inputUser.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    sendBtn.click();
+  }
+});
+
+addBubble("ai", "ようこそAIコミュへ🐾");
+addBubble("ai", "コードを入力してOKを押してね🐾");
+}); 
