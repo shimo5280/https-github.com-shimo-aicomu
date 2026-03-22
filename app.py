@@ -1,5 +1,4 @@
 import os
-import io
 import base64
 import traceback
 import requests
@@ -63,12 +62,10 @@ def file_output_to_base64(output_obj) -> str:
             raise RuntimeError("Replicate の出力が空です")
         output_obj = output_obj[0]
 
-    # Replicate docs: FileOutput は read() を持つ
     if hasattr(output_obj, "read"):
         content = output_obj.read()
         return base64.b64encode(content).decode("utf-8")
 
-    # URL文字列のとき
     output_url = str(output_obj)
     response = requests.get(output_url, timeout=120)
     response.raise_for_status()
@@ -161,7 +158,6 @@ def generate_replicate_photo_image(prompt: str) -> str:
     require_replicate_key()
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
-    # 固定バージョン文字列ではなく、安定しやすいモデル指定に変更
     output = replicate.run(
         "black-forest-labs/flux-schnell",
         input={
@@ -250,22 +246,16 @@ def build_edit_prompt(
     return prompt
 
 
-def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
+def edit_image_from_prompt(image_file, prompt):
     require_openai_key()
-
-    image_bytes = image_file_obj.read()
-    image_name = image_file_obj.filename or "upload.png"
-
-    image_stream = io.BytesIO(image_bytes)
-    image_stream.name = image_name
-    image_stream.seek(0)
 
     result = client.images.edit(
         model="gpt-image-1",
-        image=image_stream,
-        prompt=final_prompt,
+        image=image_file,
+        prompt=prompt,
         size="1024x1024"
     )
+
     return result.data[0].b64_json
 
 
@@ -438,7 +428,7 @@ def edit_image():
     if not image_count_type or not edit_request or not finish_type:
         return jsonify({"ok": False, "message": "内容が足りません"}), 400
 
-    base_image = image1 if image1 else image2
+    image_file = image1 if image1 else image2
 
     try:
         final_prompt = build_edit_prompt(
@@ -449,7 +439,7 @@ def edit_image():
             extra=extra
         )
 
-        image_b64 = edit_image_from_prompt(base_image, final_prompt)
+        image_b64 = edit_image_from_prompt(image_file, final_prompt)
 
         request_count += 1
 
