@@ -5,13 +5,17 @@ import traceback
 import requests
 import replicate
 
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 
+load_dotenv()
+
 app = Flask(__name__)
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "").strip()
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 ACCESS_CODE = "AICOMU2026"
@@ -23,15 +27,52 @@ def check_access(code):
     return (code or "").strip() == ACCESS_CODE
 
 
+def require_openai_key():
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY が設定されていません")
+
+
+def require_replicate_key():
+    if not REPLICATE_API_TOKEN:
+        raise RuntimeError("REPLICATE_API_TOKEN が設定されていません")
+
+
 def chat_reply(system_text: str, user_text: str) -> str:
+    require_openai_key()
+
     response = client.responses.create(
-        model="gpt-5-mini",
+        model="gpt-4.1-mini",
         input=[
             {"role": "system", "content": system_text},
             {"role": "user", "content": user_text},
         ],
     )
     return response.output_text.strip()
+
+
+def file_output_to_base64(output_obj) -> str:
+    """
+    Replicate の返り値が
+    - FileOutput
+    - URL文字列
+    - list[FileOutput or URL]
+    のどれでも base64 に変換する
+    """
+    if isinstance(output_obj, list):
+        if not output_obj:
+            raise RuntimeError("Replicate の出力が空です")
+        output_obj = output_obj[0]
+
+    # Replicate docs: FileOutput は read() を持つ
+    if hasattr(output_obj, "read"):
+        content = output_obj.read()
+        return base64.b64encode(content).decode("utf-8")
+
+    # URL文字列のとき
+    output_url = str(output_obj)
+    response = requests.get(output_url, timeout=120)
+    response.raise_for_status()
+    return base64.b64encode(response.content).decode("utf-8")
 
 
 # --------------------------------
@@ -106,6 +147,8 @@ def generate_image_prompt(
 
 
 def generate_openai_image_from_prompt(final_prompt: str) -> str:
+    require_openai_key()
+
     result = client.images.generate(
         model="gpt-image-1",
         prompt=final_prompt,
@@ -115,32 +158,18 @@ def generate_openai_image_from_prompt(final_prompt: str) -> str:
 
 
 def generate_replicate_photo_image(prompt: str) -> str:
-    if not REPLICATE_API_TOKEN:
-        raise RuntimeError("REPLICATE_API_TOKEN が設定されていません")
-
+    require_replicate_key()
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
 
+    # 固定バージョン文字列ではなく、安定しやすいモデル指定に変更
     output = replicate.run(
-        "stability-ai/sdxl:39ed52f2a78e934b1d4f73e7d0b5b6e4d4e4fdb3f8d7b8f1b7c1b9b6a4f2e7c8",
+        "black-forest-labs/flux-schnell",
         input={
-            "prompt": prompt,
-            "width": 1024,
-            "height": 1024,
-            "num_outputs": 1,
-            "scheduler": "K_EULER",
-            "num_inference_steps": 30,
-            "guidance_scale": 7.5,
-            "refine": "expert_ensemble_refiner",
-            "high_noise_frac": 0.8,
+            "prompt": prompt
         }
     )
 
-    image_url = output[0] if isinstance(output, list) else output
-
-    response = requests.get(image_url, timeout=60)
-    response.raise_for_status()
-
-    return base64.b64encode(response.content).decode("utf-8")
+    return file_output_to_base64(output)
 
 
 # --------------------------------
@@ -222,10 +251,14 @@ def build_edit_prompt(
 
 
 def edit_image_from_prompt(image_file_obj, final_prompt: str) -> str:
+    require_openai_key()
+
     image_bytes = image_file_obj.read()
     image_name = image_file_obj.filename or "upload.png"
+
     image_stream = io.BytesIO(image_bytes)
     image_stream.name = image_name
+    image_stream.seek(0)
 
     result = client.images.edit(
         model="gpt-image-1",

@@ -107,12 +107,22 @@ document.addEventListener("DOMContentLoaded", function () {
     return bubble;
   }
 
+  function detectMimeFromBase64(base64) {
+    if (!base64 || typeof base64 !== "string") return "image/png";
+    if (base64.startsWith("iVBOR")) return "image/png";
+    if (base64.startsWith("/9j/")) return "image/jpeg";
+    if (base64.startsWith("UklGR")) return "image/webp";
+    if (base64.startsWith("R0lGOD")) return "image/gif";
+    return "image/png";
+  }
+
   function addGeneratedImageBubble(base64) {
     const bubble = document.createElement("div");
     bubble.className = "bubble ai";
 
     const img = document.createElement("img");
-    img.src = "data:image/png;base64," + base64;
+    const mimeType = detectMimeFromBase64(base64);
+    img.src = `data:${mimeType};base64,${base64}`;
     img.style.display = "block";
     img.style.maxWidth = "260px";
     img.style.maxHeight = "260px";
@@ -271,14 +281,21 @@ document.addEventListener("DOMContentLoaded", function () {
     return new Blob(byteArrays, { type: mimeType });
   }
 
-  function downloadBase64Image(base64, filename = "aicomu_image.png") {
+  function downloadBase64Image(base64, filename = "aicomu_image") {
     try {
-      const blob = base64ToBlob(base64, "image/png");
+      const mimeType = detectMimeFromBase64(base64);
+      const ext =
+        mimeType === "image/jpeg" ? "jpg" :
+        mimeType === "image/webp" ? "webp" :
+        mimeType === "image/gif" ? "gif" :
+        "png";
+
+      const blob = base64ToBlob(base64, mimeType);
       const blobUrl = URL.createObjectURL(blob);
 
       const link = document.createElement("a");
       link.href = blobUrl;
-      link.download = filename;
+      link.download = `${filename}.${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -360,6 +377,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       const data = await res.json();
+      console.log(data);
 
       if (data.ok) {
         loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
@@ -412,6 +430,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       const data = await res.json();
+      console.log(data);
 
       if (data.ok) {
         loading.stop(data.message || "お待たせ、画像を修正したよ🐾");
@@ -491,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     addBubble("user", "A");
     addBubble("ai", "画像生成だね🐾");
-    addBubble("ai", "まず、この画像は何に使う予定？\n例：SNS投稿、アイコン、ホームページ背景、鑑賞用など🐾");
+    addBubble("ai", "まず、どのような画像にしたい？\n例：SNS投稿、アイコン、ホームページ背景、鑑賞用など🐾");
 
     inputBox.style.display = "flex";
     cameraArea.style.display = "none";
@@ -555,7 +574,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "次に、どんな系統や雰囲気がいい？\n例：かわいい系、シンプル系、ピンク系、ポップ系など🐾"
+          "次に何を主役にしたい？\n(形容詞)＋（主役）\n例：かわいい猫、キレイな景色、ピンクの水玉、ポップなロゴなど🐾"
         );
 
         inputUser.value = "";
@@ -570,7 +589,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "最後に、画像の仕上がりはどんな感じにする？\n例：写真風、イラスト風、漫画風🐾"
+          "最後に、画像の仕上がりはどんな感じにする？\n例：写真風、イラスト風、漫画風など🐾"
         );
 
         inputUser.value = "";
@@ -601,12 +620,13 @@ document.addEventListener("DOMContentLoaded", function () {
           });
 
           if (!res.ok) {
-            const text = await res.text();
-            console.error("server error:", text);
+            const errText = await res.text();
+            console.error("server error:", errText);
             throw new Error("サーバーエラー");
           }
 
           const data = await res.json();
+          console.log(data);
 
           if (data.ok) {
             loading.stop(data.message);
@@ -669,7 +689,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "画像をどのように修正したい？🐾\n1枚の場合：障害物を取り除きたい、カラーにしたい、背景を変えたい、明るさや色味を変えたい など\n2枚の場合：この服をこの人に着せたい、この背景に入れたい、この画像どうしを組み合わせたい など\nざっくりでも大丈夫だよ🐾"
+          "画像をどのように修正したい？🐾\n1枚の場合：障害物を取り除きたい、、背景を変えたい、色合いを変えたい など🐾\n2枚の場合：２枚をどのように合成したいかを、なるべく詳しく教えてね🐾\n分からなければ、ざっくりでも大丈夫だよ🐾"
         );
 
         inputUser.value = "";
@@ -680,7 +700,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (editStage === "ask-request") {
         if (!text) {
-          addBubble("ai", "どう修正したいか教えてね🐾");
+          addBubble("ai", "修正したい箇所を教えてね🐾全体的？部分的？部分的なら対象のものを言ってね🐾");
           setInputsEnabled(true);
           return;
         }
@@ -691,7 +711,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble(
           "ai",
-          "仕上がりはどんな感じがいい？🐾\n例：写真風 / イラスト風 / 漫画風 / そのまま自然な感じ"
+          "仕上がりはどんな感じがいい？🐾\n例：写真風 / イラスト風 / 漫画風 / そのまま自然な感じなど🐾"
         );
 
         inputUser.value = "";
@@ -724,7 +744,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (editStage === "ask-keep-part") {
         if (!text) {
-          addBubble("ai", "残したい部分がなければ『なし』で大丈夫だよ🐾");
+          addBubble("ai", "ほかに特になければ『なし』で大丈夫だよ🐾");
           setInputsEnabled(true);
           return;
         }
@@ -753,12 +773,13 @@ document.addEventListener("DOMContentLoaded", function () {
           });
 
           if (!res.ok) {
-            const text = await res.text();
-            console.error("server error:", text);
+            const errText = await res.text();
+            console.error("server error:", errText);
             throw new Error("サーバーエラー");
           }
 
           const data = await res.json();
+          console.log(data);
 
           if (data.ok) {
             loading.stop(data.message);
