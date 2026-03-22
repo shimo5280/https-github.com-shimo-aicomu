@@ -27,8 +27,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   let file1 = null;
   let file2 = null;
-  let previewUrl1 = "";
-  let previewUrl2 = "";
 
   // A: 画像生成
   let generateStage = "idle";
@@ -45,41 +43,25 @@ document.addEventListener("DOMContentLoaded", function () {
     imageCountType: "",
     editRequest: "",
     finishType: "",
-    keepPart: ""
+    keepPart: "",
+    extra: ""
   };
 
   inputBox.style.display = "none";
   choiceRow.style.display = "none";
-  previewImg.style.display = "none";
 
-  // 画像プレビュー（2枚）
-  const previewWrap = document.createElement("div");
-  previewWrap.id = "previewWrap";
-  previewWrap.style.display = "none";
-  previewWrap.style.gap = "8px";
-  previewWrap.style.marginBottom = "8px";
-  previewWrap.style.flexWrap = "wrap";
-  previewWrap.style.alignItems = "center";
+  // 画像選択済み表示
+  const selectedInfo = document.createElement("div");
+  selectedInfo.id = "selectedInfo";
+  selectedInfo.style.display = "none";
+  selectedInfo.style.fontSize = "12px";
+  selectedInfo.style.color = "#555";
+  selectedInfo.style.marginBottom = "6px";
+  selectedInfo.style.padding = "4px 8px";
+  selectedInfo.style.background = "rgba(0,0,0,0.05)";
+  selectedInfo.style.borderRadius = "6px";
 
-  inputBox.insertBefore(previewWrap, inputUser);
-  previewWrap.appendChild(previewImg);
-
-  const previewImg2 = document.createElement("img");
-  previewImg2.id = "previewImg2";
-  previewImg2.style.display = "none";
-  previewImg2.style.width = "52px";
-  previewImg2.style.height = "52px";
-  previewImg2.style.objectFit = "cover";
-  previewImg2.style.borderRadius = "8px";
-  previewImg2.style.border = "1px solid #999";
-
-  previewImg.style.width = "52px";
-  previewImg.style.height = "52px";
-  previewImg.style.objectFit = "cover";
-  previewImg.style.borderRadius = "8px";
-  previewImg.style.border = "1px solid #999";
-
-  previewWrap.appendChild(previewImg2);
+  inputBox.insertBefore(selectedInfo, inputUser);
 
   function scrollToBottom() {
     chatArea.scrollTop = chatArea.scrollHeight;
@@ -192,63 +174,45 @@ document.addEventListener("DOMContentLoaded", function () {
     editData.editRequest = "";
     editData.finishType = "";
     editData.keepPart = "";
+    editData.extra = "";
     clearActionButtons();
   }
 
   function clearPreview() {
-    if (previewUrl1) {
-      URL.revokeObjectURL(previewUrl1);
-      previewUrl1 = "";
-    }
-    if (previewUrl2) {
-      URL.revokeObjectURL(previewUrl2);
-      previewUrl2 = "";
-    }
-
     file1 = null;
     file2 = null;
 
     imageInput1.value = "";
     imageInput2.value = "";
 
-    previewImg.src = "";
-    previewImg.style.display = "none";
+    if (previewImg) {
+      previewImg.src = "";
+      previewImg.style.display = "none";
+    }
 
-    previewImg2.src = "";
-    previewImg2.style.display = "none";
-
-    previewWrap.style.display = "none";
+    selectedInfo.style.display = "none";
+    selectedInfo.textContent = "";
   }
 
   function refreshPreview() {
-    previewWrap.style.display = "none";
-    previewImg.style.display = "none";
-    previewImg2.style.display = "none";
-
-    if (previewUrl1) {
-      URL.revokeObjectURL(previewUrl1);
-      previewUrl1 = "";
-    }
-    if (previewUrl2) {
-      URL.revokeObjectURL(previewUrl2);
-      previewUrl2 = "";
-    }
+    const messages = [];
 
     if (file1) {
-      previewUrl1 = URL.createObjectURL(file1);
-      previewImg.src = previewUrl1;
-      previewImg.style.display = "block";
-      previewWrap.style.display = "flex";
+      messages.push("①枚目 選択済み");
     }
 
     if (file2) {
-      previewUrl2 = URL.createObjectURL(file2);
-      previewImg2.src = previewUrl2;
-      previewImg2.style.display = "block";
-      previewWrap.style.display = "flex";
+      messages.push("②枚目 選択済み");
     }
 
-    scrollToBottom();
+    if (messages.length === 0) {
+      selectedInfo.style.display = "none";
+      selectedInfo.textContent = "";
+      return;
+    }
+
+    selectedInfo.style.display = "block";
+    selectedInfo.textContent = "📷 " + messages.join(" / ");
   }
 
   function addActionButtons(primaryText, onPrimary, onCancel) {
@@ -389,10 +353,16 @@ document.addEventListener("DOMContentLoaded", function () {
         })
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("server error:", text);
+        throw new Error("サーバーエラー");
+      }
+
       const data = await res.json();
 
       if (data.ok) {
-        loading.stop(data.message || "OK、画像を生成したよ🐾");
+        loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
 
         if (data.image_b64) {
           addGeneratedImageBubble(data.image_b64);
@@ -425,6 +395,7 @@ document.addEventListener("DOMContentLoaded", function () {
       formData.append("edit_request", editData.editRequest);
       formData.append("finish_type", editData.finishType);
       formData.append("keep_part", editData.keepPart);
+      formData.append("extra", editData.extra);
 
       if (file1) formData.append("image1", file1);
       if (file2) formData.append("image2", file2);
@@ -434,10 +405,16 @@ document.addEventListener("DOMContentLoaded", function () {
         body: formData
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("server error:", text);
+        throw new Error("サーバーエラー");
+      }
+
       const data = await res.json();
 
       if (data.ok) {
-        loading.stop(data.message || "OK、画像を修正したよ🐾");
+        loading.stop(data.message || "お待たせ、画像を修正したよ🐾");
 
         if (data.image_b64) {
           addGeneratedImageBubble(data.image_b64);
@@ -562,9 +539,7 @@ document.addEventListener("DOMContentLoaded", function () {
     clearActionButtons();
     setInputsEnabled(false);
 
-    // -----------------------------
     // A = 画像生成
-    // -----------------------------
     if (currentMode === "generate") {
       if (!text) {
         addBubble("ai", "内容を入力してね🐾");
@@ -625,6 +600,12 @@ document.addEventListener("DOMContentLoaded", function () {
             })
           });
 
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("server error:", text);
+            throw new Error("サーバーエラー");
+          }
+
           const data = await res.json();
 
           if (data.ok) {
@@ -668,9 +649,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // -----------------------------
     // B = 画像修正
-    // -----------------------------
     if (currentMode === "edit") {
       if (editStage === "wait-images") {
         if (!file1 && !file2) {
@@ -752,7 +731,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         addBubble("user", text);
         editData.keepPart = text === "なし" ? "" : text;
-        editStage = "confirm";
+        editStage = "ask-extra";
 
         const loading = addFootprintLoadingBubble();
 
@@ -763,6 +742,7 @@ document.addEventListener("DOMContentLoaded", function () {
           formData.append("edit_request", editData.editRequest);
           formData.append("finish_type", editData.finishType);
           formData.append("keep_part", editData.keepPart);
+          formData.append("extra", "");
 
           if (file1) formData.append("image1", file1);
           if (file2) formData.append("image2", file2);
@@ -772,23 +752,19 @@ document.addEventListener("DOMContentLoaded", function () {
             body: formData
           });
 
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("server error:", text);
+            throw new Error("サーバーエラー");
+          }
+
           const data = await res.json();
 
           if (data.ok) {
             loading.stop(data.message);
-
-            addActionButtons(
-              "修正する",
-              handleEditFinal,
-              function () {
-                addBubble("ai", "キャンセルしたよ🐾 もう一回修正内容を変えたい時は送ってね🐾");
-                resetEditFlow();
-                editStage = "wait-images";
-                clearPreview();
-                addBubble("ai", "もう一回、画像を1枚か2枚選んで送ってね🐾");
-                setInputsEnabled(true);
-                inputUser.focus();
-              }
+            addBubble(
+              "ai",
+              "AIのアドバイスも参考にしながら、もう1つだけ追加したいことがあれば教えてね🐾\nなければ「なし」で大丈夫だよ🐾"
             );
           } else {
             loading.stop(data.message || "送信に失敗したよ🐾");
@@ -797,6 +773,37 @@ document.addEventListener("DOMContentLoaded", function () {
           console.error(error);
           loading.stop("通信エラーが起きたよ🐾");
         }
+
+        inputUser.value = "";
+        setInputsEnabled(true);
+        inputUser.focus();
+        return;
+      }
+
+      if (editStage === "ask-extra") {
+        if (!text) {
+          addBubble("ai", "追加したいことがなければ『なし』で大丈夫だよ🐾");
+          setInputsEnabled(true);
+          return;
+        }
+
+        addBubble("user", text);
+        editData.extra = text === "なし" ? "" : text;
+        editStage = "confirm";
+
+        addActionButtons(
+          "修正する",
+          handleEditFinal,
+          function () {
+            addBubble("ai", "キャンセルしたよ🐾 もう一回修正内容を変えたい時は送ってね🐾");
+            resetEditFlow();
+            editStage = "wait-images";
+            clearPreview();
+            addBubble("ai", "もう一回、画像を1枚か2枚選んで送ってね🐾");
+            setInputsEnabled(true);
+            inputUser.focus();
+          }
+        );
 
         inputUser.value = "";
         setInputsEnabled(true);
