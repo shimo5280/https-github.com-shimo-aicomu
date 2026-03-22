@@ -13,7 +13,6 @@ import replicate
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
-
 # =========================
 # 環境変数
 # =========================
@@ -22,17 +21,15 @@ REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "").strip()
 
 OPENAI_TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
 
-# Replicate のモデル名を環境変数で入れる
-# 例:
-# REPLICATE_GENERATE_MODEL=black-forest-labs/flux-schnell
-# REPLICATE_EDIT_MODEL=black-forest-labs/flux-kontext-pro
 REPLICATE_GENERATE_MODEL = os.environ.get("REPLICATE_GENERATE_MODEL", "").strip()
 REPLICATE_EDIT_MODEL = os.environ.get("REPLICATE_EDIT_MODEL", "").strip()
 
-# モデルによって入力キーが違うので環境変数で変えられるようにする
 REPLICATE_GENERATE_PROMPT_KEY = os.environ.get("REPLICATE_GENERATE_PROMPT_KEY", "prompt").strip()
-REPLICATE_EDIT_IMAGE_KEY = os.environ.get("REPLICATE_EDIT_IMAGE_KEY", "image").strip()
+REPLICATE_EDIT_IMAGE1_KEY = os.environ.get("REPLICATE_EDIT_IMAGE1_KEY", "image").strip()
+REPLICATE_EDIT_IMAGE2_KEY = os.environ.get("REPLICATE_EDIT_IMAGE2_KEY", "image2").strip()
 REPLICATE_EDIT_PROMPT_KEY = os.environ.get("REPLICATE_EDIT_PROMPT_KEY", "prompt").strip()
+
+CODE_VALUE = os.environ.get("AICOMU_CODE", "AICOMU2026").strip()
 
 if REPLICATE_API_TOKEN:
     os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
@@ -41,7 +38,7 @@ client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 
 # =========================
-# 共通関数
+# 共通
 # =========================
 def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "")).strip()
@@ -78,6 +75,11 @@ def read_replicate_output(output) -> bytes:
     raise RuntimeError(f"未対応の Replicate 出力形式です: {type(output)}")
 
 
+def require_code(code: str):
+    if clean_text(code) != CODE_VALUE:
+        raise ValueError("コードが違います")
+
+
 def build_chat_reply(user_message: str) -> str:
     user_message = clean_text(user_message)
 
@@ -92,12 +94,12 @@ def build_chat_reply(user_message: str) -> str:
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "あなたは親しみやすく簡潔な日本語アシスタントです。"
-                    "長すぎず、自然に返答してください。"
-                ),
+                "content": "あなたは親しみやすく簡潔な日本語アシスタントです。短く自然に返答してください。"
             },
-            {"role": "user", "content": user_message},
+            {
+                "role": "user",
+                "content": user_message
+            }
         ],
         temperature=0.7,
     )
@@ -109,22 +111,22 @@ def build_chat_reply(user_message: str) -> str:
     return clean_text(text) or "うまく返答を作れませんでした。"
 
 
-def build_edit_prompt(user_prompt: str, current_prompt: str = "", detail: str = "") -> str:
-    user_prompt = clean_text(user_prompt)
-    current_prompt = clean_text(current_prompt)
-    detail = clean_text(detail)
-
-    if not user_prompt and not current_prompt and not detail:
-        return ""
+def build_generate_prompt(purpose: str, style: str, image_type: str, extra: str = "") -> str:
+    purpose = clean_text(purpose)
+    style = clean_text(style)
+    image_type = clean_text(image_type)
+    extra = clean_text(extra)
 
     if not client:
         parts = []
-        if current_prompt:
-            parts.append(f"元の内容: {current_prompt}")
-        if user_prompt:
-            parts.append(f"修正: {user_prompt}")
-        if detail:
-            parts.append(f"補足: {detail}")
+        if purpose:
+            parts.append(f"用途: {purpose}")
+        if style:
+            parts.append(f"主役: {style}")
+        if image_type:
+            parts.append(f"仕上がり: {image_type}")
+        if extra:
+            parts.append(f"追加: {extra}")
         return " / ".join(parts)
 
     resp = client.chat.completions.create(
@@ -133,19 +135,20 @@ def build_edit_prompt(user_prompt: str, current_prompt: str = "", detail: str = 
             {
                 "role": "system",
                 "content": (
-                    "あなたは画像生成・画像編集用のプロンプト整理アシスタントです。"
-                    "ユーザーの意図を保ったまま、短く実用的な日本語の指示文だけを返してください。"
-                    "前置きや説明は不要です。"
+                    "あなたは画像生成用のプロンプト整理アシスタントです。"
+                    "ユーザーの意図を保ったまま、短く実用的な日本語プロンプトだけを返してください。"
+                    "説明や前置きは不要です。"
                 ),
             },
             {
                 "role": "user",
                 "content": (
-                    f"元のプロンプト: {current_prompt or 'なし'}\n"
-                    f"今回の指示: {user_prompt or 'なし'}\n"
-                    f"補足: {detail or 'なし'}"
+                    f"用途: {purpose or 'なし'}\n"
+                    f"主役: {style or 'なし'}\n"
+                    f"仕上がり: {image_type or 'なし'}\n"
+                    f"追加: {extra or 'なし'}"
                 ),
-            },
+            }
         ],
         temperature=0.4,
     )
@@ -158,12 +161,83 @@ def build_edit_prompt(user_prompt: str, current_prompt: str = "", detail: str = 
 
     if not text:
         parts = []
-        if current_prompt:
-            parts.append(f"元の内容: {current_prompt}")
-        if user_prompt:
-            parts.append(f"修正: {user_prompt}")
-        if detail:
-            parts.append(f"補足: {detail}")
+        if purpose:
+            parts.append(f"用途: {purpose}")
+        if style:
+            parts.append(f"主役: {style}")
+        if image_type:
+            parts.append(f"仕上がり: {image_type}")
+        if extra:
+            parts.append(f"追加: {extra}")
+        text = " / ".join(parts)
+
+    return text
+
+
+def build_edit_prompt(image_count_type: str, edit_request: str, finish_type: str, keep_part: str, extra: str = "") -> str:
+    image_count_type = clean_text(image_count_type)
+    edit_request = clean_text(edit_request)
+    finish_type = clean_text(finish_type)
+    keep_part = clean_text(keep_part)
+    extra = clean_text(extra)
+
+    if not client:
+        parts = []
+        if image_count_type:
+            parts.append(f"画像枚数: {image_count_type}")
+        if edit_request:
+            parts.append(f"修正内容: {edit_request}")
+        if finish_type:
+            parts.append(f"仕上がり: {finish_type}")
+        if keep_part:
+            parts.append(f"残したい部分: {keep_part}")
+        if extra:
+            parts.append(f"追加: {extra}")
+        return " / ".join(parts)
+
+    resp = client.chat.completions.create(
+        model=OPENAI_TEXT_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "あなたは画像編集用のプロンプト整理アシスタントです。"
+                    "ユーザーの意図を保ったまま、短く実用的な日本語プロンプトだけを返してください。"
+                    "説明や前置きは不要です。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"画像枚数: {image_count_type or 'なし'}\n"
+                    f"修正内容: {edit_request or 'なし'}\n"
+                    f"仕上がり: {finish_type or 'なし'}\n"
+                    f"残したい部分: {keep_part or 'なし'}\n"
+                    f"追加: {extra or 'なし'}"
+                ),
+            }
+        ],
+        temperature=0.4,
+    )
+
+    text = ""
+    if resp.choices and resp.choices[0].message:
+        text = resp.choices[0].message.content or ""
+
+    text = clean_text(text)
+
+    if not text:
+        parts = []
+        if image_count_type:
+            parts.append(f"画像枚数: {image_count_type}")
+        if edit_request:
+            parts.append(f"修正内容: {edit_request}")
+        if finish_type:
+            parts.append(f"仕上がり: {finish_type}")
+        if keep_part:
+            parts.append(f"残したい部分: {keep_part}")
+        if extra:
+            parts.append(f"追加: {extra}")
         text = " / ".join(parts)
 
     return text
@@ -174,10 +248,8 @@ def run_replicate_generate(prompt: str) -> bytes:
 
     if not REPLICATE_API_TOKEN:
         raise RuntimeError("REPLICATE_API_TOKEN が未設定です")
-
     if not REPLICATE_GENERATE_MODEL:
         raise RuntimeError("REPLICATE_GENERATE_MODEL が未設定です")
-
     if not prompt:
         raise RuntimeError("生成プロンプトが空です")
 
@@ -189,28 +261,30 @@ def run_replicate_generate(prompt: str) -> bytes:
     return read_replicate_output(output)
 
 
-def run_replicate_edit(image_bytes: bytes, filename: str, prompt: str) -> bytes:
+def run_replicate_edit(image1_bytes: bytes, image1_name: str, image2_bytes: bytes, image2_name: str, prompt: str) -> bytes:
     prompt = clean_text(prompt)
 
     if not REPLICATE_API_TOKEN:
         raise RuntimeError("REPLICATE_API_TOKEN が未設定です")
-
     if not REPLICATE_EDIT_MODEL:
         raise RuntimeError("REPLICATE_EDIT_MODEL が未設定です")
-
-    if not image_bytes:
-        raise RuntimeError("画像データが空です")
-
+    if not image1_bytes:
+        raise RuntimeError("image1 が空です")
     if not prompt:
         raise RuntimeError("修正プロンプトが空です")
 
-    file_obj = io.BytesIO(image_bytes)
-    file_obj.name = filename or "input.png"
+    file1 = io.BytesIO(image1_bytes)
+    file1.name = image1_name or "image1.png"
 
     model_input = {
-        REPLICATE_EDIT_IMAGE_KEY: file_obj,
+        REPLICATE_EDIT_IMAGE1_KEY: file1,
         REPLICATE_EDIT_PROMPT_KEY: prompt,
     }
+
+    if image2_bytes:
+        file2 = io.BytesIO(image2_bytes)
+        file2.name = image2_name or "image2.png"
+        model_input[REPLICATE_EDIT_IMAGE2_KEY] = file2
 
     output = replicate.run(REPLICATE_EDIT_MODEL, input=model_input)
     return read_replicate_output(output)
@@ -228,7 +302,11 @@ def index():
 def chat():
     try:
         data = request.get_json(silent=True) or {}
+
+        code = clean_text(data.get("code") or "")
         message = clean_text(data.get("message") or data.get("prompt") or "")
+
+        require_code(code)
 
         if not message:
             return jsonify({
@@ -251,23 +329,29 @@ def chat():
         }), 500
 
 
-@app.route("/api/edit_summary", methods=["POST"])
-def edit_summary():
+@app.route("/api/generate_summary", methods=["POST"])
+def generate_summary():
     try:
         data = request.get_json(silent=True) or {}
 
-        prompt = clean_text(data.get("prompt") or data.get("user_prompt") or data.get("edit_prompt") or "")
-        current_prompt = clean_text(data.get("current_prompt") or data.get("base_prompt") or "")
-        detail = clean_text(data.get("detail") or "")
+        code = clean_text(data.get("code") or "")
+        purpose = clean_text(data.get("purpose") or "")
+        style = clean_text(data.get("style") or "")
+        image_type = clean_text(data.get("image_type") or "")
+        extra = clean_text(data.get("extra") or "")
 
-        final_prompt = build_edit_prompt(
-            user_prompt=prompt,
-            current_prompt=current_prompt,
-            detail=detail
+        require_code(code)
+
+        final_prompt = build_generate_prompt(
+            purpose=purpose,
+            style=style,
+            image_type=image_type,
+            extra=extra
         )
 
         return jsonify({
             "ok": True,
+            "message": f"こんな感じでまとめたよ🐾\n{final_prompt}",
             "final_prompt": final_prompt
         })
 
@@ -275,7 +359,7 @@ def edit_summary():
         traceback.print_exc()
         return jsonify({
             "ok": False,
-            "message": f"edit_summary エラー: {str(e)}"
+            "message": f"generate_summary エラー: {str(e)}"
         }), 500
 
 
@@ -284,26 +368,26 @@ def generate_image():
     try:
         data = request.get_json(silent=True) or {}
 
-        prompt = clean_text(data.get("prompt") or "")
-        detail = clean_text(data.get("detail") or "")
-        current_prompt = clean_text(data.get("current_prompt") or "")
+        code = clean_text(data.get("code") or "")
+        purpose = clean_text(data.get("purpose") or "")
+        style = clean_text(data.get("style") or "")
+        image_type = clean_text(data.get("image_type") or "")
+        extra = clean_text(data.get("extra") or "")
 
-        final_prompt = build_edit_prompt(
-            user_prompt=prompt,
-            current_prompt=current_prompt,
-            detail=detail
-        ) if (detail or current_prompt) else prompt
+        require_code(code)
 
-        if not final_prompt:
-            return jsonify({
-                "ok": False,
-                "message": "prompt が空です"
-            }), 400
+        final_prompt = build_generate_prompt(
+            purpose=purpose,
+            style=style,
+            image_type=image_type,
+            extra=extra
+        )
 
         image_bytes = run_replicate_generate(final_prompt)
 
         return jsonify({
             "ok": True,
+            "message": "お待たせ、画像を生成したよ🐾",
             "image_b64": to_b64(image_bytes),
             "mime": "image/png",
             "final_prompt": final_prompt
@@ -317,51 +401,93 @@ def generate_image():
         }), 500
 
 
-@app.route("/api/edit_image", methods=["POST"])
-def edit_image():
+@app.route("/api/edit_summary", methods=["POST"])
+def edit_summary():
     try:
-        image_file = request.files.get("image")
-        prompt = clean_text(request.form.get("prompt") or request.form.get("final_prompt") or "")
-        detail = clean_text(request.form.get("detail") or "")
-        current_prompt = clean_text(request.form.get("current_prompt") or "")
+        code = clean_text(request.form.get("code") or "")
+        image_count_type = clean_text(request.form.get("image_count_type") or "")
+        edit_request = clean_text(request.form.get("edit_request") or "")
+        finish_type = clean_text(request.form.get("finish_type") or "")
+        keep_part = clean_text(request.form.get("keep_part") or "")
+        extra = clean_text(request.form.get("extra") or "")
 
-        if image_file is None:
-            return jsonify({
-                "ok": False,
-                "message": "image が送られていません"
-            }), 400
+        require_code(code)
 
         final_prompt = build_edit_prompt(
-            user_prompt=prompt,
-            current_prompt=current_prompt,
-            detail=detail
-        ) if (detail or current_prompt) else prompt
-
-        if not final_prompt:
-            return jsonify({
-                "ok": False,
-                "message": "prompt が空です"
-            }), 400
-
-        filename = image_file.filename or "input.png"
-        image_bytes = image_file.read()
-
-        if not image_bytes:
-            return jsonify({
-                "ok": False,
-                "message": "画像の読み込みに失敗しました"
-            }), 400
-
-        edited_bytes = run_replicate_edit(
-            image_bytes=image_bytes,
-            filename=filename,
-            prompt=final_prompt
+            image_count_type=image_count_type,
+            edit_request=edit_request,
+            finish_type=finish_type,
+            keep_part=keep_part,
+            extra=extra
         )
 
         return jsonify({
             "ok": True,
+            "message": f"こんな感じでまとめたよ🐾\n{final_prompt}",
+            "final_prompt": final_prompt
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": f"edit_summary エラー: {str(e)}"
+        }), 500
+
+
+@app.route("/api/edit_image", methods=["POST"])
+def edit_image():
+    try:
+        code = clean_text(request.form.get("code") or "")
+        image_count_type = clean_text(request.form.get("image_count_type") or "")
+        edit_request = clean_text(request.form.get("edit_request") or "")
+        finish_type = clean_text(request.form.get("finish_type") or "")
+        keep_part = clean_text(request.form.get("keep_part") or "")
+        extra = clean_text(request.form.get("extra") or "")
+
+        image1 = request.files.get("image1")
+        image2 = request.files.get("image2")
+
+        require_code(code)
+
+        if image1 is None:
+            return jsonify({
+                "ok": False,
+                "message": "image1 が送られていません"
+            }), 400
+
+        final_prompt = build_edit_prompt(
+            image_count_type=image_count_type,
+            edit_request=edit_request,
+            finish_type=finish_type,
+            keep_part=keep_part,
+            extra=extra
+        )
+
+        image1_bytes = image1.read()
+        image2_bytes = image2.read() if image2 else b""
+
+        if not image1_bytes:
+            return jsonify({
+                "ok": False,
+                "message": "image1 の読み込みに失敗しました"
+            }), 400
+
+        edited_bytes = run_replicate_edit(
+            image1_bytes=image1_bytes,
+            image1_name=image1.filename or "image1.png",
+            image2_bytes=image2_bytes,
+            image2_name=(image2.filename if image2 else "image2.png"),
+            prompt=final_prompt
+        )
+
+        out_name = image1.filename or "result.png"
+
+        return jsonify({
+            "ok": True,
+            "message": "お待たせ、画像を修正したよ🐾",
             "image_b64": to_b64(edited_bytes),
-            "mime": guess_mime(filename),
+            "mime": guess_mime(out_name),
             "final_prompt": final_prompt
         })
 
