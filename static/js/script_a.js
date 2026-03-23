@@ -103,18 +103,17 @@ document.addEventListener("DOMContentLoaded", function () {
   async function requestSummary() {
     const loading = addFootprintLoadingBubble();
 
-    try {
-      const res = await fetch("/api/generate_summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          purpose: aData.purpose,
-          style: aData.style,
-          image_type: aData.imageType
-        })
-      });
-
+  try {
+     const res = await fetch("/api/generate_summary", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+    code: codeInput.value.trim(),
+    purpose: aData.style,
+    style: aData.purpose,
+    image_type: aData.imageType
+  })
+});
       const data = await res.json();
 
       if (!data.ok) {
@@ -255,8 +254,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       addBubble("user", "A");
       addBubble("ai", "画像生成だね🐾");
-      addBubble("ai", "まず、この画像は何に使う予定？🐾\n例：SNS投稿、アイコン、ホームページ背景、鑑賞用など");
-
+      addBubble("ai", "まず、画像は何を主役にしたい？🐾\n（形容詞）＋（主役）で入れてね\n例：かわいい猫、キレイな景色、ポップなロゴ");
       inputBox.style.display = "flex";
       inputUser.value = "";
       inputUser.focus();
@@ -282,7 +280,7 @@ document.addEventListener("DOMContentLoaded", function () {
       aData.purpose = text;
       stage = "ask-style";
       inputUser.value = "";
-      addBubble("ai", "次に何を主役にしたい？🐾\n（形容詞）＋（主役）で入れてね\n例：かわいい猫、キレイな景色、ポップなロゴ");
+      addBubble("ai", "次に、画像の使用目的を教えてね🐾\n例：SNS、ホームページ背景、鑑賞用など");
       inputUser.focus();
       return;
     }
@@ -291,7 +289,7 @@ document.addEventListener("DOMContentLoaded", function () {
       aData.style = text;
       stage = "ask-image-type";
       inputUser.value = "";
-      addBubble("ai", "最後に、画像の仕上がりはどんな感じにする？🐾\n例：写真風、イラスト風、漫画風");
+      addBubble("ai", "最後に、画像の色合いを教えてね🐾\n例：カラフル、モノクロ、セピア色、パステル");
       inputUser.focus();
       return;
     }

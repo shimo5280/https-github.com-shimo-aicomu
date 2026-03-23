@@ -63,6 +63,7 @@ def read_replicate_output(output) -> bytes:
 def index():
     return render_template("index.html")
 
+
 @app.route("/api/generate_summary", methods=["POST"])
 def generate_summary():
     try:
@@ -137,6 +138,7 @@ def generate_summary():
             "ok": False,
             "message": "まとめ作成でエラーが起きたよ🐾"
         }), 500
+
 
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
