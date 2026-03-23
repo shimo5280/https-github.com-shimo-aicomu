@@ -7,6 +7,7 @@ from urllib.request import urlopen
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
 import replicate
+import traceback
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -62,91 +63,80 @@ def read_replicate_output(output) -> bytes:
 def index():
     return render_template("index.html")
 
-
 @app.route("/api/generate_summary", methods=["POST"])
 def generate_summary():
     try:
         data = request.get_json(silent=True) or {}
 
-        code = clean_text(data.get("code") or "")
-        purpose = clean_text(data.get("purpose") or "")
-        style = clean_text(data.get("style") or "")
-        image_type = clean_text(data.get("image_type") or "")
+        code = (data.get("code") or "").strip()
+        purpose = (data.get("purpose") or "").strip()
+        style = (data.get("style") or "").strip()
+        image_type = (data.get("image_type") or "").strip()
 
         require_code(code)
 
         if not purpose or not style or not image_type:
             return jsonify({
                 "ok": False,
-                "message": "入力が足りません",
-                "summary": "",
-                "advice": "",
-                "final_prompt": ""
+                "message": "3つの要素が足りないよ🐾"
             }), 400
 
-        if openai_client:
-            resp = openai_client.chat.completions.create(
-                model=OPENAI_TEXT_MODEL,
-                response_format={"type": "json_object"},
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "あなたは画像生成アシスタントです。"
-                            "必ずJSONだけを返してください。"
-                            '形式は {"summary":"...", "advice":"...", "final_prompt":"..."} です。'
-                            "summary は入力内容を自然な日本語で短く整理した文。"
-                            "advice は短い一言アドバイス。"
-                            "final_prompt は画像生成にそのまま使える日本語プロンプト。"
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"用途: {purpose}\n"
-                            f"主役: {style}\n"
-                            f"仕上がり: {image_type}\n"
-                            f"追加: なし"
-                        )
-                    }
-                ],
-                temperature=0.7
-            )
+        if not openai_client:
+            return jsonify({
+                "ok": False,
+                "message": "OPENAI_API_KEY が未設定です"
+            }), 500
 
-            content = resp.choices[0].message.content or "{}"
-            result = json.loads(content)
+        user_text = f"""
+用途: {purpose}
+主役: {style}
+仕上がり: {image_type}
 
-            summary = clean_text(result.get("summary") or "")
-            advice = clean_text(result.get("advice") or "")
-            final_prompt = clean_text(result.get("final_prompt") or "")
-        else:
-            summary = f"{purpose}向けで、主役は{style}、仕上がりは{image_type}"
-            advice = "色や雰囲気を少し具体的にすると、画像が安定しやすいよ🐾"
-            final_prompt = f"{purpose}用、{style}、{image_type}"
+この3つをもとに、
+画像生成用の補足アドバイスだけを日本語で作ってください。
 
-        if not summary:
-            summary = f"{purpose}向けで、主役は{style}、仕上がりは{image_type}"
-        if not advice:
-            advice = "色や雰囲気を少し具体的にすると、画像が安定しやすいよ🐾"
-        if not final_prompt:
-            final_prompt = f"{purpose}用、{style}、{image_type}"
+重要:
+- 3つの要素を削らない
+- 最終プロンプトそのものは作らない
+- 主役をぶらさない
+- 補足だけを1〜2文で返す
+"""
+
+        response = openai_client.responses.create(
+            model=OPENAI_TEXT_MODEL,
+            input=[
+                {
+                    "role": "system",
+                    "content": "あなたは画像生成の補足を提案するアシスタントです。要約しすぎず、主役をぶらさず、補足だけ返してください。"
+                },
+                {
+                    "role": "user",
+                    "content": user_text
+                }
+            ]
+        )
+
+        advice = (response.output_text or "").strip()
 
         return jsonify({
             "ok": True,
-            "summary": summary,
-            "advice": advice,
-            "final_prompt": final_prompt
+            "summary": f"用途は「{purpose}」、主役は「{style}」、仕上がりは「{image_type}」で進めるよ🐾",
+            "advice": advice
         })
 
-    except Exception as e:
+    except ValueError as e:
         return jsonify({
             "ok": False,
-            "message": f"generate_summary エラー: {str(e)}",
-            "summary": "",
-            "advice": "",
-            "final_prompt": ""
-        }), 500
+            "message": str(e)
+        }), 400
 
+    except Exception as e:
+        print("generate_summary error:", e)
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": "まとめ作成でエラーが起きたよ🐾"
+        }), 500
 
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
@@ -171,6 +161,8 @@ def generate_image():
                 "message": "REPLICATE_API_TOKEN が未設定です",
                 "image_b64": ""
             }), 500
+
+        print("generate_image に渡された prompt =", prompt)
 
         output = replicate_client.run(
             "black-forest-labs/flux-schnell",

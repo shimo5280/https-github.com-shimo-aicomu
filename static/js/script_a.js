@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let stage = "idle";
   let isGenerating = false;
   let basePrompt = "";
+  let aiAdvice = "";
 
   const aData = {
     purpose: "",
@@ -92,6 +93,7 @@ document.addEventListener("DOMContentLoaded", function () {
     stage = "idle";
     isGenerating = false;
     basePrompt = "";
+    aiAdvice = "";
     aData.purpose = "";
     aData.style = "";
     aData.imageType = "";
@@ -121,11 +123,17 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      basePrompt = data.final_prompt || "";
+      basePrompt = [
+        aData.purpose,
+        aData.style,
+        aData.imageType
+      ].filter(Boolean).join("\n");
+
+      aiAdvice = data.advice || "";
 
       loading.stop("こんな感じでまとめたよ🐾");
       addBubble("ai", data.summary || "まとめを作ったよ🐾");
-      addBubble("ai", "AIアドバイス🐾\n" + (data.advice || "雰囲気を少し具体的にすると良いよ🐾"));
+      addBubble("ai", "AIアドバイス🐾\n" + (aiAdvice || "雰囲気を少し具体的にすると良いよ🐾"));
       addBubble("ai", "もう1つだけ追加したいことがあれば教えてね🐾\nなければ「なし」で大丈夫だよ🐾");
 
       stage = "ask-extra";
@@ -143,9 +151,16 @@ document.addEventListener("DOMContentLoaded", function () {
     if (isGenerating) return;
     isGenerating = true;
 
-    const finalPrompt = aData.extra
-      ? `${basePrompt} / ${aData.extra}`
-      : basePrompt;
+    const finalPrompt = [
+      basePrompt,
+      aiAdvice,
+      aData.extra,
+      "ロゴなし",
+      "文字なし",
+      "マークなし"
+    ].filter(Boolean).join("\n");
+
+    console.log("finalPrompt =", finalPrompt);
 
     const loading = addFootprintLoadingBubble();
 
