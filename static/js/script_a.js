@@ -16,7 +16,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const inputUser = document.getElementById("inputUser");
   const sendBtn = document.getElementById("sendBtn");
 
-  if (!chatArea || !choiceRow || !inputBox || !inputUser || !sendBtn || !codeInput || !btnCodeOk) {
+  if (
+    !chatArea || !choiceRow || !inputBox || !inputUser ||
+    !sendBtn || !codeInput || !btnCodeOk
+  ) {
     console.error("必要な要素が見つかりません");
     return;
   }
@@ -25,12 +28,14 @@ document.addEventListener("DOMContentLoaded", function () {
   let isGenerating = false;
   let basePrompt = "";
   let aiAdvice = "";
+  let lastImageBase64 = "";
 
   const aData = {
-    purpose: "",
-    style: "",
-    imageType: "",
-    extra: ""
+    subject: "",    // 主役
+    purpose: "",    // 使用目的
+    background: "", // 背景・雰囲気
+    colorTone: "",  // 色合い
+    extra: ""       // 追加
   };
 
   inputBox.style.display = "none";
@@ -94,52 +99,94 @@ document.addEventListener("DOMContentLoaded", function () {
     isGenerating = false;
     basePrompt = "";
     aiAdvice = "";
+    aData.subject = "";
     aData.purpose = "";
-    aData.style = "";
-    aData.imageType = "";
+    aData.background = "";
+    aData.colorTone = "";
     aData.extra = "";
+  }
+
+  function resetToStart() {
+    chatArea.innerHTML = "";
+    resetAFlow();
+    inputBox.style.display = "none";
+    choiceRow.style.display = "none";
+    addBubble("ai", "ようこそAIコミュへ🐾");
+    addBubble("ai", "コードを入力してOKを押してね🐾");
+    codeInput.value = "";
+    codeInput.focus();
+  }
+
+  function saveCurrentImage() {
+    if (!lastImageBase64) {
+      addBubble("ai", "保存できる画像がまだないよ🐾");
+      return;
+    }
+
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${lastImageBase64}`;
+    a.download = "aicomu-image.png";
+    a.click();
+
+    addBubble("ai", "保存したよ🐾 今日はここまでだよ。また明日試してみてね🐾");
+  }
+
+  function setResultButtons() {
+    choiceRow.style.display = "flex";
+
+    btnYes.textContent = "保存";
+    btnYes.disabled = false;
+    btnYes.style.opacity = "1";
+    btnYes.onclick = saveCurrentImage;
+
+    btnNo.textContent = "戻る";
+    btnNo.disabled = false;
+    btnNo.style.opacity = "1";
+    btnNo.onclick = resetToStart;
   }
 
   async function requestSummary() {
     const loading = addFootprintLoadingBubble();
 
-  try {
-     const res = await fetch("/api/generate_summary", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-    code: codeInput.value.trim(),
-    purpose: aData.style,
-    style: aData.purpose,
-    image_type: aData.imageType
-  })
-});
+    try {
+      const res = await fetch("/api/generate_summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeInput.value.trim(),
+          purpose: aData.purpose,
+          style: aData.subject,
+          image_type: `${aData.background} / ${aData.colorTone}`
+        })
+      });
+
       const data = await res.json();
 
       if (!data.ok) {
         loading.stop(data.message || "まとめに失敗したよ🐾");
-        stage = "ask-purpose";
+        stage = "ask-subject";
         return;
       }
 
       basePrompt = [
+        aData.subject,
         aData.purpose,
-        aData.style,
-        aData.imageType
+        aData.background,
+        aData.colorTone
       ].filter(Boolean).join("\n");
 
       aiAdvice = data.advice || "";
 
       loading.stop("こんな感じでまとめたよ🐾");
       addBubble("ai", data.summary || "まとめを作ったよ🐾");
-      addBubble("ai", "AIアドバイス🐾\n" + (aiAdvice || "雰囲気を少し具体的にすると良いよ🐾"));
-      addBubble("ai", "もう1つだけ追加したいことがあれば教えてね🐾\nなければ「なし」で大丈夫だよ🐾");
+      addBubble("ai", "AIアドバイス🐾\n" + (aiAdvice || "少し具体的にすると良さそうだよ🐾"));
+      addBubble("ai", "最後に追加したいことがあれば教えてね🐾\nなければ「なし」で大丈夫だよ🐾");
 
       stage = "ask-extra";
     } catch (error) {
       console.error(error);
       loading.stop("通信エラーが起きたよ🐾");
-      stage = "ask-purpose";
+      stage = "ask-subject";
     } finally {
       inputUser.value = "";
       inputUser.focus();
@@ -183,14 +230,14 @@ document.addEventListener("DOMContentLoaded", function () {
       loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
 
       if (data.image_b64) {
+        lastImageBase64 = data.image_b64;
         addGeneratedImageBubble(data.image_b64);
+        setResultButtons();
       } else {
         addBubble("ai", "画像データが見つからなかったよ🐾");
       }
 
-      resetAFlow();
-      stage = "ask-purpose";
-      addBubble("ai", "もう一回やるなら、まずこの画像は何に使う予定？🐾");
+      inputBox.style.display = "none";
     } catch (error) {
       console.error(error);
       loading.stop("通信エラーが起きたよ🐾");
@@ -218,14 +265,25 @@ document.addEventListener("DOMContentLoaded", function () {
     choiceRow.style.display = "flex";
     inputBox.style.display = "none";
 
-    if (btnYes) btnYes.textContent = "A";
-    if (btnNo) {
-      btnNo.textContent = "B";
-      btnNo.disabled = true;
-      btnNo.style.opacity = "0.5";
-    }
+    btnYes.textContent = "A";
+    btnYes.disabled = false;
+    btnYes.style.opacity = "1";
+    btnYes.onclick = function () {
+      resetAFlow();
+      stage = "ask-subject";
 
-    resetAFlow();
+      addBubble("user", "A");
+      addBubble("ai", "画像生成だね🐾");
+      addBubble("ai", "まず、何を主役にしたい？🐾\n例：人物、犬、猫、虹、建物、花 など\nなるべく具体的に教えてね");
+      inputBox.style.display = "flex";
+      inputUser.value = "";
+      inputUser.focus();
+    };
+
+    btnNo.textContent = "B";
+    btnNo.disabled = true;
+    btnNo.style.opacity = "0.5";
+    btnNo.onclick = null;
   }
 
   if (goAicomu) {
@@ -247,20 +305,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (e.key === "Enter") handleCodeCheck();
   });
 
-  if (btnYes) {
-    btnYes.addEventListener("click", function () {
-      resetAFlow();
-      stage = "ask-purpose";
-
-      addBubble("user", "A");
-      addBubble("ai", "画像生成だね🐾");
-      addBubble("ai", "まず、画像は何を主役にしたい？🐾\n（形容詞）＋（主役）で入れてね\n例：かわいい猫、キレイな景色、ポップなロゴ");
-      inputBox.style.display = "flex";
-      inputUser.value = "";
-      inputUser.focus();
-    });
-  }
-
   sendBtn.addEventListener("click", async function () {
     const text = inputUser.value.trim();
 
@@ -276,26 +320,36 @@ document.addEventListener("DOMContentLoaded", function () {
 
     addBubble("user", text);
 
+    if (stage === "ask-subject") {
+      aData.subject = text;
+      stage = "ask-purpose";
+      inputUser.value = "";
+      addBubble("ai", "次に、どこで使う画像にしたい？🐾\n例：SNS、アイコン、ホームページ背景、鑑賞用 など");
+      inputUser.focus();
+      return;
+    }
+
     if (stage === "ask-purpose") {
       aData.purpose = text;
-      stage = "ask-style";
+      stage = "ask-background";
       inputUser.value = "";
-      addBubble("ai", "次に、画像の使用目的を教えてね🐾\n例：SNS、ホームページ背景、鑑賞用など");
+      addBubble("ai", "次に、どんな背景や場所のイメージにしたい？🐾\n例：青空広がる草原、月明かりが見える海、花畑が広がる丘 など");
       inputUser.focus();
       return;
     }
 
-    if (stage === "ask-style") {
-      aData.style = text;
-      stage = "ask-image-type";
+    if (stage === "ask-background") {
+      aData.background = text;
+      stage = "ask-color";
       inputUser.value = "";
-      addBubble("ai", "最後に、画像の色合いを教えてね🐾\n例：カラフル、モノクロ、セピア色、パステル");
+      addBubble("ai", "最後に、色合いはどんな感じがいい？🐾\n例：カラー、パステル、セピア、モノクロ など");
+
       inputUser.focus();
       return;
     }
 
-    if (stage === "ask-image-type") {
-      aData.imageType = text;
+    if (stage === "ask-color") {
+      aData.colorTone = text;
       await requestSummary();
       return;
     }
@@ -304,8 +358,8 @@ document.addEventListener("DOMContentLoaded", function () {
       aData.extra = text === "なし" ? "" : text;
       stage = "confirm";
       inputUser.value = "";
-      addBubble("ai", "生成する準備ができたよ🐾");
-      addBubble("ai", "生成する時は、もう一度送信ボタンを押してね🐾");
+      addBubble("ai", "こんな感じでまとめたよ🐾\n追加したいことがあれば教えてね。\nなければ『なし』で大丈夫だよ🐾");
+      addBubble("ai", "生成する準備ができたよ🐾\nこのままでよければ、もう一度送信してね🐾"); 
       inputUser.value = "生成";
       inputUser.focus();
       return;
@@ -313,7 +367,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (stage === "confirm") {
       await generateImage();
-      return;
     }
   });
 
