@@ -3,6 +3,7 @@ import re
 import base64
 import traceback
 from urllib.request import urlopen
+from io import BytesIO
 
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
@@ -68,7 +69,7 @@ def translate_to_english(text: str) -> str:
             {
                 "role": "system",
                 "content": (
-                    "You translate Japanese image prompts into clear natural English for image generation. "
+                    "You translate Japanese image prompts into clear natural English for image generation or image editing. "
                     "Keep the main subject strong and explicit. "
                     "Do not add unnecessary details. "
                     "Return only the English prompt."
@@ -83,6 +84,35 @@ def translate_to_english(text: str) -> str:
     return clean_text(response.output_text or "")
 
 
+def decode_base64_image(image_b64: str) -> bytes:
+    if not image_b64:
+        raise ValueError("image_b64 が空です")
+
+    try:
+        return base64.b64decode(image_b64)
+    except Exception as e:
+        raise ValueError("image_b64 の変換に失敗しました") from e
+
+
+def edit_image_with_openai(image_bytes: bytes, prompt_en: str) -> str:
+    if not openai_client:
+        raise RuntimeError("OPENAI_API_KEY が未設定です")
+
+    image_file = BytesIO(image_bytes)
+    image_file.name = "input.png"
+
+    result = openai_client.images.edit(
+        model="gpt-image-1",
+        image=image_file,
+        prompt=prompt_en,
+    )
+
+    if not result.data or not result.data[0].b64_json:
+        raise RuntimeError("画像編集の結果が空です")
+
+    return result.data[0].b64_json
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -94,9 +124,9 @@ def generate_summary():
         data = request.get_json(silent=True) or {}
 
         code = clean_text(data.get("code") or "")
-        purpose = clean_text(data.get("purpose") or "")       # 使用目的
-        style = clean_text(data.get("style") or "")           # 主役
-        image_type = clean_text(data.get("image_type") or "") # 背景・雰囲気・色合いなど
+        purpose = clean_text(data.get("purpose") or "")
+        style = clean_text(data.get("style") or "")
+        image_type = clean_text(data.get("image_type") or "")
 
         require_code(code)
 
@@ -225,6 +255,71 @@ def generate_image():
         return jsonify({
             "ok": False,
             "message": f"generate_image エラー: {str(e)}",
+            "image_b64": ""
+        }), 500
+
+
+@app.route("/api/edit_image", methods=["POST"])
+def edit_image():
+    try:
+        data = request.get_json(silent=True) or {}
+
+        code = clean_text(data.get("code") or "")
+        prompt_jp = clean_text(data.get("prompt") or "")
+        image_b64 = data.get("image_b64") or ""
+
+        require_code(code)
+
+        if not prompt_jp:
+            return jsonify({
+                "ok": False,
+                "message": "prompt が空です",
+                "image_b64": ""
+            }), 400
+
+        if not image_b64:
+            return jsonify({
+                "ok": False,
+                "message": "修正元画像がありません",
+                "image_b64": ""
+            }), 400
+
+        if not openai_client:
+            return jsonify({
+                "ok": False,
+                "message": "OPENAI_API_KEY が未設定です",
+                "image_b64": ""
+            }), 500
+
+        prompt_en = translate_to_english(prompt_jp)
+        image_bytes = decode_base64_image(image_b64)
+
+        print("edit_image に渡された日本語 prompt =", prompt_jp)
+        print("edit_image に渡す英語 prompt =", prompt_en)
+
+        edited_b64 = edit_image_with_openai(image_bytes, prompt_en)
+
+        return jsonify({
+            "ok": True,
+            "message": "お待たせ、画像を修正したよ🐾",
+            "image_b64": edited_b64,
+            "final_prompt_jp": prompt_jp,
+            "final_prompt_en": prompt_en
+        })
+
+    except ValueError as e:
+        return jsonify({
+            "ok": False,
+            "message": str(e),
+            "image_b64": ""
+        }), 400
+
+    except Exception as e:
+        print("edit_image error:", e)
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": f"edit_image エラー: {str(e)}",
             "image_b64": ""
         }), 500
 
