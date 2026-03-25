@@ -1,218 +1,71 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const pageTop = document.getElementById("pageTop");
-  const pageAicomu = document.getElementById("pageAicomu");
-  const goAicomu = document.getElementById("goAicomu");
-  const loadingOverlay = document.getElementById("loadingOverlay");
-
-  const codeInput = document.getElementById("codeInput");
-  const btnCodeOk = document.getElementById("btnCodeOk");
-
-  const chatArea = document.getElementById("chatArea");
-  const choiceRow = document.getElementById("choiceRow");
-  const btnYes = document.getElementById("btnYes");
-  const btnNo = document.getElementById("btnNo");
-
-  const inputBox = document.getElementById("inputBox");
+  const btnB = document.getElementById("btnNo"); // ←今Bに使ってるやつ
   const cameraArea = document.getElementById("cameraArea");
+
   const imageInput1 = document.getElementById("imageInput1");
   const imageInput2 = document.getElementById("imageInput2");
 
   const previewArea = document.getElementById("previewArea");
-  const previewImg = document.getElementById("previewImg");
 
-  const inputUser = document.getElementById("inputUser");
-  const sendBtn = document.getElementById("sendBtn");
-
-  const CODE_VALUE = "AICOMU2026";
-
-  let currentMode = "";
   let file1 = null;
   let file2 = null;
 
-  inputBox.style.display = "none";
-  choiceRow.style.display = "none";
+  // 最初は非表示
   cameraArea.style.display = "none";
   previewArea.style.display = "none";
 
-  function addBubble(role, text) {
-    const bubble = document.createElement("div");
-    bubble.className = `bubble ${role}`;
-    bubble.textContent = text;
-    chatArea.appendChild(bubble);
-    chatArea.scrollTop = chatArea.scrollHeight;
-  }
-
-  // 🔥 プレビュー表示（ここが今回の核心）
+  // 🔥 プレビュー表示関数（これが核心）
   function updatePreview() {
+    previewArea.innerHTML = ""; // 一旦クリア
+
     if (!file1 && !file2) {
       previewArea.style.display = "none";
-      previewImg.src = "";
       return;
     }
 
-    const file = file1 || file2;
-
-    previewImg.src = URL.createObjectURL(file);
     previewArea.style.display = "block";
+
+    [file1, file2].forEach((file) => {
+      if (!file) return;
+
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+
+      // 小さめ（確認用）
+      img.style.width = "90px";
+      img.style.height = "90px";
+      img.style.objectFit = "cover";
+      img.style.borderRadius = "8px";
+      img.style.margin = "4px";
+
+      previewArea.appendChild(img);
+    });
   }
 
-  function clearPreview() {
+  // B押したらカメラ表示
+  btnB.onclick = function () {
+    cameraArea.style.display = "flex";
+
+    // リセット
     file1 = null;
     file2 = null;
-
     imageInput1.value = "";
     imageInput2.value = "";
-
-    previewImg.src = "";
+    previewArea.innerHTML = "";
     previewArea.style.display = "none";
-  }
-
-  // スタート遷移
-  goAicomu.addEventListener("click", function () {
-    loadingOverlay.classList.remove("hidden");
-
-    setTimeout(() => {
-      loadingOverlay.classList.add("hidden");
-      pageTop.classList.add("hidden");
-      pageAicomu.classList.remove("hidden");
-      codeInput.focus();
-    }, 700);
-  });
-
-  // コード確認
-  function handleCodeCheck() {
-    const code = codeInput.value.trim();
-    chatArea.innerHTML = "";
-
-    if (code !== CODE_VALUE) {
-      addBubble("ai", "コードが違うよ🐾");
-      return;
-    }
-
-    addBubble("ai", "コードOK🐾");
-    addBubble("ai", "A：生成 / B：修正 どっち？🐾");
-
-    choiceRow.style.display = "flex";
-  }
-
-  btnCodeOk.addEventListener("click", handleCodeCheck);
-
-  // A
-  btnYes.onclick = function () {
-    currentMode = "A";
-    addBubble("user", "A");
-    addBubble("ai", "画像生成だよ🐾");
-
-    inputBox.style.display = "flex";
-    cameraArea.style.display = "none";
-    clearPreview();
   };
 
-  // B
- btnNo.onclick = function () {
-  currentMode = "B";
-  addBubble("user", "B");
-  addBubble("ai", "画像修正だよ🐾");
-  addBubble("ai", "画像を2枚まで選べるよ🐾");
-
-  inputBox.style.display = "flex";
-  cameraArea.style.display = "flex";
-
-  previewImg.src = "";
-  previewArea.style.display = "none";
-
-  file1 = null;
-  file2 = null;
-
-  imageInput1.value = "";
-  imageInput2.value = "";
-};
-
-  // 🔥 画像選択
- imageInput1.addEventListener("change", function () {
-  file1 = imageInput1.files[0] || null;
-
-  console.log("image1 selected", file1);
-
-  if (file1) {
-    previewImg.src = URL.createObjectURL(file1);
-
-    previewArea.style.display = "block";
-    previewArea.style.visibility = "visible";
-    previewArea.style.opacity = "1";
-    previewArea.style.height = "140px";
-    previewArea.style.margin = "8px 0";
-    previewArea.style.textAlign = "center";
-    previewArea.style.border = "1px solid red";
-
-    previewImg.style.display = "block";
-    previewImg.style.width = "120px";
-    previewImg.style.height = "120px";
-    previewImg.style.objectFit = "cover";
-    previewImg.style.margin = "0 auto";
-    previewImg.style.borderRadius = "10px";
-    previewImg.style.border = "2px solid blue";
-  } else {
-    previewImg.src = "";
-    previewArea.style.display = "none";
-  }
-});
-
-imageInput2.addEventListener("change", function () {
-  file2 = imageInput2.files[0] || null;
-
-  console.log("image2 selected", file2);
-
-  const file = file1 || file2;
-
-  if (file) {
-    previewImg.src = URL.createObjectURL(file);
-
-    previewArea.style.display = "block";
-    previewArea.style.visibility = "visible";
-    previewArea.style.opacity = "1";
-    previewArea.style.height = "140px";
-    previewArea.style.margin = "8px 0";
-    previewArea.style.textAlign = "center";
-    previewArea.style.border = "1px solid red";
-
-    previewImg.style.display = "block";
-    previewImg.style.width = "120px";
-    previewImg.style.height = "120px";
-    previewImg.style.objectFit = "cover";
-    previewImg.style.margin = "0 auto";
-    previewImg.style.borderRadius = "10px";
-    previewImg.style.border = "2px solid blue";
-  } else {
-    previewImg.src = "";
-    previewArea.style.display = "none";
-  }
-});
-
-  // 送信
-  sendBtn.addEventListener("click", function () {
-    const text = inputUser.value.trim();
-
-    if (!currentMode) {
-      addBubble("ai", "AかB選んでね🐾");
-      return;
-    }
-
-    if (currentMode === "B") {
-      if (!file1 && !file2) {
-        addBubble("ai", "画像選んでね🐾");
-        return;
-      }
-
-      addBubble("user", "この画像で進める");
-
-      // 👇ここでプレビューはそのまま残す
-      addBubble("ai", "OK、この画像で進めるね🐾");
-    }
-
-    inputUser.value = "";
+  // 画像①
+  imageInput1.addEventListener("change", function () {
+    file1 = imageInput1.files[0] || null;
+    console.log("image1", file1);
+    updatePreview();
   });
 
-  addBubble("ai", "ようこそAIコミュへ🐾");
-  addBubble("ai", "コードを入力してOK押してね🐾");
+  // 画像②
+  imageInput2.addEventListener("change", function () {
+    file2 = imageInput2.files[0] || null;
+    console.log("image2", file2);
+    updatePreview();
+  });
 });
