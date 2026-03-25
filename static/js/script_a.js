@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const sendBtn = document.getElementById("sendBtn");
 
   const cameraArea = document.getElementById("cameraArea");
-  const btnCamera = document.getElementById("btnCamera");
   const imageInput1 = document.getElementById("imageInput1");
 
   const previewArea = document.getElementById("previewArea");
@@ -56,7 +55,6 @@ document.addEventListener("DOMContentLoaded", function () {
     bubble.textContent = text;
     chatArea.appendChild(bubble);
     scrollToBottom();
-    return bubble;
   }
 
   async function fileToBase64(file) {
@@ -82,6 +80,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (previewImg) previewImg.src = "";
     if (previewArea) previewArea.style.display = "none";
     if (cameraArea) cameraArea.style.display = "none";
+
     inputBox.style.display = "none";
     choiceRow.style.display = "none";
     chatArea.innerHTML = "";
@@ -98,7 +97,9 @@ document.addEventListener("DOMContentLoaded", function () {
     if (previewArea) previewArea.style.display = "none";
 
     inputBox.style.display = "flex";
+
     addBubble("ai", "どんな仕上がりにしたい？🐾");
+
     inputUser.value = "";
     inputUser.focus();
   }
@@ -108,9 +109,6 @@ document.addEventListener("DOMContentLoaded", function () {
     chatArea.innerHTML = "";
 
     if (!code) {
-      inputBox.style.display = "none";
-      choiceRow.style.display = "none";
-      if (cameraArea) cameraArea.style.display = "none";
       addBubble("ai", "コードを入力してね🐾");
       return;
     }
@@ -119,17 +117,11 @@ document.addEventListener("DOMContentLoaded", function () {
     addBubble("ai", "今日はBパターンの確認だよ🐾 Bを押して始めてね🐾");
 
     choiceRow.style.display = "flex";
-    inputBox.style.display = "none";
-    if (cameraArea) cameraArea.style.display = "none";
 
     btnYes.textContent = "B";
-    btnYes.disabled = false;
-    btnYes.style.opacity = "1";
     btnYes.onclick = startBFlow;
 
     btnNo.textContent = "戻る";
-    btnNo.disabled = false;
-    btnNo.style.opacity = "1";
     btnNo.onclick = function () {
       resetBFlow();
       addBubble("ai", "ようこそAIコミュへ🐾");
@@ -158,12 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (e.key === "Enter") handleCodeCheck();
   });
 
-  if (btnCamera && imageInput1) {
-    btnCamera.addEventListener("click", function () {
-      imageInput1.click();
-    });
-  }
-
+  // 👇ここが一番大事（プレビュー）
   if (imageInput1) {
     imageInput1.addEventListener("change", async function (e) {
       const file = e.target.files?.[0];
@@ -179,6 +166,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (previewArea) {
           previewArea.style.display = "block";
         }
+
       } catch (error) {
         console.error(error);
         addBubble("ai", "画像の読み込みに失敗したよ🐾");
@@ -206,7 +194,6 @@ document.addEventListener("DOMContentLoaded", function () {
       stage = "b-ask-edit";
       inputUser.value = "";
       addBubble("ai", "どこをどう変えたい？🐾");
-      inputUser.focus();
       return;
     }
 
@@ -215,7 +202,6 @@ document.addEventListener("DOMContentLoaded", function () {
       stage = "b-ask-mood";
       inputUser.value = "";
       addBubble("ai", "どんな雰囲気にする？🐾");
-      inputUser.focus();
       return;
     }
 
@@ -224,23 +210,20 @@ document.addEventListener("DOMContentLoaded", function () {
       stage = "b-ask-keep";
       inputUser.value = "";
       addBubble("ai", "ここはそのままにしたい、ってところある？🐾");
-      inputUser.focus();
       return;
     }
 
     if (stage === "b-ask-keep") {
       bData.keep = text;
-      stage = "b-done";
+      stage = "done";
       inputUser.value = "";
 
       addBubble("ai", "まとめ👇");
-      addBubble(
-        "ai",
+      addBubble("ai",
         `・${bData.goal}\n・${bData.editPoint}\n・${bData.mood}\n・${bData.keep}`
       );
-      addBubble("ai", "ここまで通ればOKだよ🐾");
 
-      inputUser.focus();
+      addBubble("ai", "ここまで通ればOKだよ🐾");
       return;
     }
   });
