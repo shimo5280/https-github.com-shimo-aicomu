@@ -136,7 +136,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (file1) {
     previewImg.src = URL.createObjectURL(file1);
+
     previewArea.style.display = "block";
+    previewArea.style.visibility = "visible";
+    previewArea.style.opacity = "1";
+    previewArea.style.height = "140px";
+    previewArea.style.margin = "8px 0";
+    previewArea.style.textAlign = "center";
+    previewArea.style.border = "1px solid red";
+
+    previewImg.style.display = "block";
+    previewImg.style.width = "120px";
+    previewImg.style.height = "120px";
+    previewImg.style.objectFit = "cover";
+    previewImg.style.margin = "0 auto";
+    previewImg.style.borderRadius = "10px";
+    previewImg.style.border = "2px solid blue";
   } else {
     previewImg.src = "";
     previewArea.style.display = "none";
@@ -152,7 +167,22 @@ imageInput2.addEventListener("change", function () {
 
   if (file) {
     previewImg.src = URL.createObjectURL(file);
+
     previewArea.style.display = "block";
+    previewArea.style.visibility = "visible";
+    previewArea.style.opacity = "1";
+    previewArea.style.height = "140px";
+    previewArea.style.margin = "8px 0";
+    previewArea.style.textAlign = "center";
+    previewArea.style.border = "1px solid red";
+
+    previewImg.style.display = "block";
+    previewImg.style.width = "120px";
+    previewImg.style.height = "120px";
+    previewImg.style.objectFit = "cover";
+    previewImg.style.margin = "0 auto";
+    previewImg.style.borderRadius = "10px";
+    previewImg.style.border = "2px solid blue";
   } else {
     previewImg.src = "";
     previewArea.style.display = "none";
