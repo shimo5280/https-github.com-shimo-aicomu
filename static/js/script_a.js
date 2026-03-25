@@ -109,27 +109,55 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // B
-  btnNo.onclick = function () {
-    currentMode = "B";
-    addBubble("user", "B");
-    addBubble("ai", "画像修正だよ🐾");
-    addBubble("ai", "画像を選んでね🐾");
+ btnNo.onclick = function () {
+  currentMode = "B";
+  addBubble("user", "B");
+  addBubble("ai", "画像修正だよ🐾");
+  addBubble("ai", "画像を2枚まで選べるよ🐾");
 
-    inputBox.style.display = "flex";
-    cameraArea.style.display = "flex";
-    clearPreview();
-  };
+  inputBox.style.display = "flex";
+  cameraArea.style.display = "flex";
+
+  previewImg.src = "";
+  previewArea.style.display = "none";
+
+  file1 = null;
+  file2 = null;
+
+  imageInput1.value = "";
+  imageInput2.value = "";
+};
 
   // 🔥 画像選択
-  imageInput1.addEventListener("change", function () {
-    file1 = imageInput1.files[0] || null;
-    updatePreview();
-  });
+ imageInput1.addEventListener("change", function () {
+  file1 = imageInput1.files[0] || null;
 
-  imageInput2.addEventListener("change", function () {
-    file2 = imageInput2.files[0] || null;
-    updatePreview();
-  });
+  console.log("image1 selected", file1);
+
+  if (file1) {
+    previewImg.src = URL.createObjectURL(file1);
+    previewArea.style.display = "block";
+  } else {
+    previewImg.src = "";
+    previewArea.style.display = "none";
+  }
+});
+
+imageInput2.addEventListener("change", function () {
+  file2 = imageInput2.files[0] || null;
+
+  console.log("image2 selected", file2);
+
+  const file = file1 || file2;
+
+  if (file) {
+    previewImg.src = URL.createObjectURL(file);
+    previewArea.style.display = "block";
+  } else {
+    previewImg.src = "";
+    previewArea.style.display = "none";
+  }
+});
 
   // 送信
   sendBtn.addEventListener("click", function () {
