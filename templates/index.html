@@ -15,7 +15,6 @@
 </head>
 
 <body>
-  <!-- Top -->
   <section id="pageTop">
     <img class="logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="AIコミュ ロゴ">
     <p>こちらから↓</p>
@@ -33,7 +32,6 @@
     </div>
   </section>
 
-  <!-- Aicomu -->
   <section id="pageAicomu" class="hidden">
     <div id="codeRow">
       <input type="text" id="codeInput" placeholder="コードを入力">
@@ -54,28 +52,24 @@
       </header>
 
       <div class="app" id="app">
-  <main class="chat" id="chatArea" aria-live="polite"></main>
+        <main class="chat" id="chatArea" aria-live="polite"></main>
 
-  <div class="chatFooter">
-    <div id="previewArea" style="display:none; text-align:center; margin-bottom:8px;">
-      <img id="previewImg" alt="選択画像プレビュー"
-           style="width:120px; height:120px; object-fit:cover; border-radius:10px; border:1px solid #ccc;">
-    </div>
+        <div class="chatFooter">
+          <div id="previewArea"></div>
 
-    <div id="inputBox">
-      <div id="cameraArea">
-        <label for="imageInput1" id="cameraBtn1">📷1</label>
-        <input type="file" id="imageInput1" accept="image/*" hidden>
+          <div id="inputBox">
+            <div id="cameraArea">
+              <label for="imageInput1" id="cameraBtn1">📷1</label>
+              <input type="file" id="imageInput1" accept="image/*" hidden>
 
-        <label for="imageInput2" id="cameraBtn2">📷2</label>
-        <input type="file" id="imageInput2" accept="image/*" hidden>
-      </div>
+              <label for="imageInput2" id="cameraBtn2">📷2</label>
+              <input type="file" id="imageInput2" accept="image/*" hidden>
+            </div>
 
-      <input type="text" id="inputUser" placeholder="入力してね☆">
-      <button id="sendBtn" type="button">送信</button>
-    </div>
-  </div>
-</div>
+            <input type="text" id="inputUser" placeholder="入力してね☆">
+            <button id="sendBtn" type="button">送信</button>
+          </div>
+        </div>
       </div>
 
       <div class="btnRow" id="choiceRow">
@@ -85,8 +79,6 @@
     </div>
   </section>
 
-<script src="{{ url_for('static', filename='js/script_a.js') }}?v=3"></script> 
- <script src="{{ url_for('static', filename='js/script.js') }}?v=3"></script> 
-   
+  <script src="{{ url_for('static', filename='js/script_a.js') }}?v=7"></script>
 </body>
 </html>

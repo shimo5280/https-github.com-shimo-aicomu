@@ -94,16 +94,21 @@ def decode_base64_image(image_b64: str) -> bytes:
         raise ValueError("image_b64 の変換に失敗しました") from e
 
 
-def edit_image_with_openai(image_bytes: bytes, prompt_en: str) -> str:
+def edit_image_with_openai(image_bytes_list: list[bytes], prompt_en: str) -> str:
     if not openai_client:
         raise RuntimeError("OPENAI_API_KEY が未設定です")
 
-    image_file = BytesIO(image_bytes)
-    image_file.name = "input.png"
+    image_files = []
+    for i, image_bytes in enumerate(image_bytes_list, start=1):
+      image_file = BytesIO(image_bytes)
+      image_file.name = f"input{i}.png"
+      image_files.append(image_file)
+
+    image_param = image_files[0] if len(image_files) == 1 else image_files
 
     result = openai_client.images.edit(
         model="gpt-image-1",
-        image=image_file,
+        image=image_param,
         prompt=prompt_en,
     )
 
@@ -223,9 +228,6 @@ def generate_image():
 
         prompt_en = translate_to_english(prompt_jp)
 
-        print("generate_image に渡された日本語 prompt =", prompt_jp)
-        print("generate_image に渡す英語 prompt =", prompt_en)
-
         output = replicate_client.run(
             "black-forest-labs/flux-schnell",
             input={"prompt": prompt_en}
@@ -267,6 +269,7 @@ def edit_image():
         code = clean_text(data.get("code") or "")
         prompt_jp = clean_text(data.get("prompt") or "")
         image_b64 = data.get("image_b64") or ""
+        image_b64_2 = data.get("image_b64_2") or ""
 
         require_code(code)
 
@@ -277,7 +280,7 @@ def edit_image():
                 "image_b64": ""
             }), 400
 
-        if not image_b64:
+        if not image_b64 and not image_b64_2:
             return jsonify({
                 "ok": False,
                 "message": "修正元画像がありません",
@@ -292,12 +295,14 @@ def edit_image():
             }), 500
 
         prompt_en = translate_to_english(prompt_jp)
-        image_bytes = decode_base64_image(image_b64)
 
-        print("edit_image に渡された日本語 prompt =", prompt_jp)
-        print("edit_image に渡す英語 prompt =", prompt_en)
+        image_bytes_list = []
+        if image_b64:
+            image_bytes_list.append(decode_base64_image(image_b64))
+        if image_b64_2:
+            image_bytes_list.append(decode_base64_image(image_b64_2))
 
-        edited_b64 = edit_image_with_openai(image_bytes, prompt_en)
+        edited_b64 = edit_image_with_openai(image_bytes_list, prompt_en)
 
         return jsonify({
             "ok": True,
