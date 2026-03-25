@@ -38,6 +38,8 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const bData = {
+    scope: "",       // "全体" or "一部"
+    target: "",      // 背景、服、人物など
     request: "",
     finishType: "",
     keepPart: "",
@@ -184,6 +186,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function resetBData() {
+    bData.scope = "";
+    bData.target = "";
     bData.request = "";
     bData.finishType = "";
     bData.keepPart = "";
@@ -282,20 +286,42 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function buildBPrompt() {
     const selectedCount = [file1, file2].filter(Boolean).length;
-    const modeText = selectedCount === 2 ? "2枚の画像編集" : "1枚の画像修正";
+
+    const subjectText =
+      selectedCount === 2
+        ? "この2枚の写真をもとに画像を編集する"
+        : "この写真をもとに画像を編集する";
+
+    let scopeText = "";
+    if (bData.scope === "全体") {
+      scopeText =
+        selectedCount === 2
+          ? "この2枚の写真全体に対して、"
+          : "この写真全体に対して、";
+    } else {
+      const target = bData.target || "一部";
+      scopeText =
+        selectedCount === 2
+          ? `この2枚の写真の${target}に対して、`
+          : `この写真の${target}に対して、`;
+    }
 
     return [
-      `${modeText}`,
+      subjectText,
       "",
-      "元の画像の内容はできるだけ維持する。",
+      scopeText + (bData.request || "自然に整える"),
       "",
-      `変更したい内容: ${bData.request}`,
-      `仕上がり: ${bData.finishType}`,
-      `残したい部分: ${bData.keepPart || "なし"}`,
-      `追加: ${bData.extra || "なし"}`,
+      "仕上がり:",
+      bData.finishType || "自然な感じ",
       "",
-      "不要な要素（文字・ロゴ・透かし・余計な装飾）は追加しない。",
-      "色味・光・影・質感を自然に補正し、違和感なく馴染ませる。"
+      "残したい部分:",
+      bData.keepPart || "元の要素をできるだけ維持する",
+      "",
+      "追加:",
+      bData.extra || "なし",
+      "",
+      "不要な文字・ロゴ・透かし・余計な装飾は追加しない。",
+      "自然に補正し、違和感なく馴染ませる。"
     ].join("\n");
   }
 
@@ -310,6 +336,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const image_b64_2 = file2 ? await fileToBase64(file2) : "";
       const finalPrompt = buildBPrompt();
 
+      console.log("B finalPrompt =", finalPrompt);
+      console.log("image_b64 exists =", !!image_b64);
+      console.log("image_b64_2 exists =", !!image_b64_2);
+
+      if (!finalPrompt.trim()) {
+        loading.stop("修正内容のまとめが空だったよ🐾");
+        return;
+      }
+
       const res = await fetch("/api/edit_image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -320,6 +355,13 @@ document.addEventListener("DOMContentLoaded", function () {
           image_b64_2: image_b64_2
         })
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("edit_image server error:", text);
+        loading.stop("サーバーエラーが出たよ🐾");
+        return;
+      }
 
       const data = await res.json();
 
@@ -527,12 +569,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (previewArea) previewArea.style.display = "none";
 
         const selectedCount = [file1, file2].filter(Boolean).length;
-        stage = "b-request";
+        stage = "b-scope";
 
         if (selectedCount === 2) {
-          addBubble("ai", "この2枚をどうしたいか教えて🐾\n例：この服をこの人に着せたい、この背景に入れたい、2枚を合成したい");
+          addBubble("ai", "この2枚は全体を使う？それとも一部だけ使う？🐾\n例：全体 / 一部");
         } else {
-          addBubble("ai", "画像のどこを変えたいか教えて🐾\n例：全体をカラー、障害物を除く、背景を海に など");
+          addBubble("ai", "この写真は全体を変える？それとも一部を変える？🐾\n例：全体 / 一部");
         }
 
         inputUser.value = "";
@@ -545,6 +587,29 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       addBubble("user", text);
+
+      if (stage === "b-scope") {
+        bData.scope = text.includes("部分") || text.includes("一部") ? "一部" : "全体";
+        stage = "b-target";
+        inputUser.value = "";
+
+        if (bData.scope === "全体") {
+          bData.target = "全体";
+          stage = "b-request";
+          addBubble("ai", "どうしたいか教えて🐾\n例：全体をカラーに、明るくする、自然に整える");
+        } else {
+          addBubble("ai", "どの部分を変えたい？🐾\n例：背景、服、人物、髪");
+        }
+        return;
+      }
+
+      if (stage === "b-target") {
+        bData.target = text;
+        stage = "b-request";
+        inputUser.value = "";
+        addBubble("ai", "その部分をどうしたいか教えて🐾\n例：背景を海にする、服を別の服に変える");
+        return;
+      }
 
       if (stage === "b-request") {
         bData.request = text;
@@ -577,6 +642,7 @@ document.addEventListener("DOMContentLoaded", function () {
         addBubble("ai", "こんな感じで進めるよ🐾");
         addBubble(
           "ai",
+          `・範囲：${bData.scope}${bData.scope === "一部" ? `（${bData.target}）` : ""}\n` +
           `・修正したい内容：${bData.request}\n` +
           `・仕上がり：${bData.finishType}\n` +
           `・残したい部分：${bData.keepPart || "なし"}\n` +

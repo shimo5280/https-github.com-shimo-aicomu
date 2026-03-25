@@ -98,11 +98,14 @@ def edit_image_with_openai(image_bytes_list: list[bytes], prompt_en: str) -> str
     if not openai_client:
         raise RuntimeError("OPENAI_API_KEY が未設定です")
 
+    if not image_bytes_list:
+        raise ValueError("編集元画像がありません")
+
     image_files = []
     for i, image_bytes in enumerate(image_bytes_list, start=1):
-      image_file = BytesIO(image_bytes)
-      image_file.name = f"input{i}.png"
-      image_files.append(image_file)
+        image_file = BytesIO(image_bytes)
+        image_file.name = f"input{i}.png"
+        image_files.append(image_file)
 
     image_param = image_files[0] if len(image_files) == 1 else image_files
 
@@ -228,6 +231,9 @@ def generate_image():
 
         prompt_en = translate_to_english(prompt_jp)
 
+        print("generate_image に渡された日本語 prompt =", prompt_jp)
+        print("generate_image に渡す英語 prompt =", prompt_en)
+
         output = replicate_client.run(
             "black-forest-labs/flux-schnell",
             input={"prompt": prompt_en}
@@ -295,6 +301,9 @@ def edit_image():
             }), 500
 
         prompt_en = translate_to_english(prompt_jp)
+
+        print("edit_image に渡された日本語 prompt =", prompt_jp)
+        print("edit_image に渡す英語 prompt =", prompt_en)
 
         image_bytes_list = []
         if image_b64:
