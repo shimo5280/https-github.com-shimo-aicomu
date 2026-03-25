@@ -155,7 +155,18 @@ body{
   width: 100%;
   flex-shrink: 0;
 }
+#previewArea {
+  display: none;
+  text-align: center;
+  margin: 10px 0;
+}
 
+#previewImg {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+}
 /* 入力欄 */
 #inputUser{
   flex: 1;
