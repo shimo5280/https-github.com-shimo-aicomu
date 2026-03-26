@@ -9,8 +9,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const chatArea = document.getElementById("chatArea");
   const choiceRow = document.getElementById("choiceRow");
-  const btnYes = document.getElementById("btnYes"); // A
-  const btnNo = document.getElementById("btnNo");   // B
+  const btnYes = document.getElementById("btnYes");
+  const btnNo = document.getElementById("btnNo");
 
   const inputBox = document.getElementById("inputBox");
   const inputUser = document.getElementById("inputUser");
@@ -112,9 +112,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function addFootprintLoadingBubble() {
     const bubble = addBubble("ai", "🐾");
     if (!bubble) {
-      return {
-        stop() {}
-      };
+      return { stop() {} };
     }
 
     bubble.classList.add("loading");
@@ -146,8 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       reader.onload = () => {
         const result = String(reader.result || "");
-        const base64 = result.split(",")[1] || "";
-        resolve(base64);
+        resolve(result.split(",")[1] || "");
       };
 
       reader.onerror = reject;
@@ -156,13 +153,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function syncFilesFromInputs() {
-    file1 = imageInput1 && imageInput1.files && imageInput1.files[0]
-      ? imageInput1.files[0]
-      : file1;
-
-    file2 = imageInput2 && imageInput2.files && imageInput2.files[0]
-      ? imageInput2.files[0]
-      : file2;
+    file1 = imageInput1?.files?.[0] || file1;
+    file2 = imageInput2?.files?.[0] || file2;
   }
 
   function resetPreview() {
@@ -252,87 +244,78 @@ document.addEventListener("DOMContentLoaded", function () {
     if (inputUser) inputUser.focus();
   }
 
-function clearActionButtons() {
-  const oldRow = document.getElementById("resultActionRow");
-  if (oldRow) oldRow.remove();
-}
-
-function disableAllUiAfterBSave(btnSave) {
-  stage = "b-done";
-  isGenerating = false;
-
-  if (btnSave) {
-    btnSave.disabled = true;
-    btnSave.textContent = "保存したよ";
+  function clearActionButtons() {
+    const oldRow = document.getElementById("resultActionRow");
+    if (oldRow) oldRow.remove();
   }
 
-  addBubble("ai", "保存が終わったよ🐾");
-  addBubble("ai", "Bの体験はここで終了だよ🐾");
-}
+  function showResultActions(mode) {
+    clearActionButtons();
 
-function showResultActions(mode) {
-  clearActionButtons();
+    const row = document.createElement("div");
+    row.id = "resultActionRow";
+    row.className = "btnRow";
+    row.style.display = "flex";
+    row.style.gap = "8px";
+    row.style.justifyContent = "center";
+    row.style.margin = "12px 0";
 
-  const row = document.createElement("div");
-  row.id = "resultActionRow";
-  row.className = "btnRow";
-  row.style.display = "flex";
-  row.style.gap = "8px";
-  row.style.justifyContent = "center";
-  row.style.margin = "12px 0";
+    const btnSave = document.createElement("button");
+    btnSave.textContent = "保存する";
+    btnSave.type = "button";
 
-  const btnSave = document.createElement("button");
-  btnSave.textContent = "保存する";
-  btnSave.type = "button";
+    btnSave.addEventListener("click", function () {
+      if (!lastResultImageB64) {
+        addBubble("ai", "保存できる画像がまだないよ🐾");
+        return;
+      }
 
-  btnSave.addEventListener("click", function () {
-    if (!lastResultImageB64) {
-      addBubble("ai", "保存できる画像がまだないよ🐾");
-      return;
-    }
+      const a = document.createElement("a");
+      a.href = `data:image/png;base64,${lastResultImageB64}`;
+      a.download = "aicomu_result.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
 
-    const a = document.createElement("a");
-    a.href = `data:image/png;base64,${lastResultImageB64}`;
-    a.download = "aicomu_result.png";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    if (mode === "B") {
-      disableAllUiAfterBSave(btnSave);
-    }
-  });
-
-  row.appendChild(btnSave);
-
-  if (mode === "A") {
-    const btnBack = document.createElement("button");
-    btnBack.textContent = "戻る";
-    btnBack.type = "button";
-
-    btnBack.addEventListener("click", function () {
-      clearActionButtons();
-      resetPreview();
-      resetAData();
-      resetBData();
-      currentMode = "";
-      stage = "idle";
-      lastResultImageB64 = "";
-
-      if (inputBox) inputBox.style.display = "none";
-      if (cameraArea) cameraArea.style.display = "none";
-      if (previewArea) previewArea.style.display = "none";
-      showChoiceRow();
-
-      addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
+      if (mode === "B") {
+        btnSave.disabled = true;
+        btnSave.textContent = "保存したよ";
+        addBubble("ai", "保存が終わったよ🐾");
+        addBubble("ai", "Bの体験はここで終了だよ🐾");
+      }
     });
 
-    row.appendChild(btnBack);
+    row.appendChild(btnSave);
+
+    if (mode === "A") {
+      const btnBack = document.createElement("button");
+      btnBack.textContent = "戻る";
+      btnBack.type = "button";
+
+      btnBack.addEventListener("click", function () {
+        clearActionButtons();
+        resetPreview();
+        resetAData();
+        resetBData();
+        currentMode = "";
+        stage = "idle";
+        lastResultImageB64 = "";
+
+        if (inputBox) inputBox.style.display = "none";
+        if (cameraArea) cameraArea.style.display = "none";
+        if (previewArea) previewArea.style.display = "none";
+
+        showChoiceRow();
+        addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
+      });
+
+      row.appendChild(btnBack);
+    }
+
+    chatArea.appendChild(row);
+    scrollToBottom();
   }
 
-  chatArea.appendChild(row);
-  scrollToBottom();
-}
   function finishImageResult(imageB64, doneStage, doneMessage) {
     if (!imageB64) {
       addBubble("ai", "画像データが見つからなかったよ🐾");
@@ -679,9 +662,7 @@ function showResultActions(mode) {
           return;
         }
 
-        if (text) {
-          addBubble("user", text);
-        }
+        if (text) addBubble("user", text);
 
         if (stage === "a-purpose") {
           aData.purpose = text;
@@ -720,9 +701,7 @@ function showResultActions(mode) {
           return;
         }
 
-        if (stage === "a-done") {
-          return;
-        }
+        if (stage === "a-done") return;
       }
 
       if (currentMode === "B") {
@@ -746,9 +725,9 @@ function showResultActions(mode) {
           if (inputUser) inputUser.value = "";
 
           if (files.length === 2) {
-            addBubble("ai", "この2枚でどう合成したいか教えて？🐾\n例：服を入れ替える、人物を合成する");
+            addBubble("ai", "この2枚でどんなことしたい？🐾\n例：服を入れ替える、人物を合成する");
           } else {
-            addBubble("ai", "この画像をどう修正したいか教えて？🐾\n例：服を変える、明るくする、雰囲気を変える");
+            addBubble("ai", "この画像をどう修正したい？🐾\n例：服を変える、明るくする、雰囲気を変える");
           }
           return;
         }
@@ -816,21 +795,20 @@ function showResultActions(mode) {
           return;
         }
 
-        if (stage === "b-done") {
-          return;
-        }
+        if (stage === "b-done") return;
       }
     });
   }
-if (inputUser) {
-  inputUser.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (sendBtn && !sendBtn.disabled) sendBtn.click();
-    }
-  });
-}
 
-addBubble("ai", "ようこそAIコミュへ🐾");
-addBubble("ai", "コードを入力してOKを押してね🐾");
+  if (inputUser) {
+    inputUser.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (sendBtn) sendBtn.click();
+      }
+    });
+  }
+
+  addBubble("ai", "ようこそAIコミュへ🐾");
+  addBubble("ai", "コードを入力してOKを押してね🐾");
 });
