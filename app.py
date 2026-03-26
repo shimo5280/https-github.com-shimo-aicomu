@@ -113,6 +113,28 @@ def translate_to_english(text: str) -> str:
     return prompt_en
 
 
+def build_edit_prompt_en(user_prompt_en: str) -> str:
+    rules = """
+IMPORTANT RULE:
+This is an image editing task.
+
+Do not modify any part of the original image unless explicitly requested.
+Only edit the specified areas.
+Preserve all other parts exactly as they are.
+
+Keep the original face EXACTLY unchanged.
+Do not alter age, identity, facial features, skin texture, facial lighting, or expression.
+Do not make the subject look older, younger, sharper, or more mature.
+
+No beautification.
+No automatic enhancement.
+No unnecessary changes.
+No text, logo, watermark, signature, or extra decoration.
+""".strip()
+
+    return f"{rules}\n\nUSER REQUEST:\n{user_prompt_en.strip()}"
+
+
 def decode_base64_image(image_b64: str) -> bytes:
     if not image_b64:
         raise ValueError("image_b64 が空です")
@@ -308,7 +330,8 @@ def edit_image():
         if not openai_client:
             return json_error("OPENAI_API_KEY が未設定です", 500)
 
-        prompt_en = translate_to_english(prompt_jp)
+        prompt_en_raw = translate_to_english(prompt_jp)
+        prompt_en = build_edit_prompt_en(prompt_en_raw)
 
         print("edit_image に渡された日本語 prompt =", prompt_jp)
         print("edit_image に渡す英語 prompt =", prompt_en)
