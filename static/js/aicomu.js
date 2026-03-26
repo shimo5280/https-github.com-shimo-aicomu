@@ -252,100 +252,87 @@ document.addEventListener("DOMContentLoaded", function () {
     if (inputUser) inputUser.focus();
   }
 
-  function clearActionButtons() {
-    const oldRow = document.getElementById("resultActionRow");
-    if (oldRow) oldRow.remove();
+function clearActionButtons() {
+  const oldRow = document.getElementById("resultActionRow");
+  if (oldRow) oldRow.remove();
+}
+
+function disableAllUiAfterBSave(btnSave) {
+  stage = "b-done";
+  isGenerating = false;
+
+  if (btnSave) {
+    btnSave.disabled = true;
+    btnSave.textContent = "保存したよ";
   }
 
-  function disableAllUiAfterBSave(btnSave) {
-    currentMode = "";
-    stage = "idle";
-    isGenerating = false;
+  addBubble("ai", "保存が終わったよ🐾");
+  addBubble("ai", "Bの体験はここで終了だよ🐾");
+}
 
-    if (choiceRow) choiceRow.style.display = "none";
-    if (inputBox) inputBox.style.display = "none";
-    if (cameraArea) cameraArea.style.display = "none";
-    if (previewArea) previewArea.style.display = "none";
-    if (sendBtn) sendBtn.disabled = true;
-    if (inputUser) inputUser.disabled = true;
-    if (btnYes) btnYes.disabled = true;
-    if (btnNo) btnNo.disabled = true;
-    if (imageInput1) imageInput1.disabled = true;
-    if (imageInput2) imageInput2.disabled = true;
+function showResultActions(mode) {
+  clearActionButtons();
 
-    if (btnSave) {
-      btnSave.disabled = true;
-      btnSave.textContent = "保存したよ";
+  const row = document.createElement("div");
+  row.id = "resultActionRow";
+  row.className = "btnRow";
+  row.style.display = "flex";
+  row.style.gap = "8px";
+  row.style.justifyContent = "center";
+  row.style.margin = "12px 0";
+
+  const btnSave = document.createElement("button");
+  btnSave.textContent = "保存する";
+  btnSave.type = "button";
+
+  btnSave.addEventListener("click", function () {
+    if (!lastResultImageB64) {
+      addBubble("ai", "保存できる画像がまだないよ🐾");
+      return;
     }
 
-    addBubble("ai", "保存が終わったよ🐾");
-    addBubble("ai", "Bの体験はここで終了だよ🐾");
-  }
+    const a = document.createElement("a");
+    a.href = `data:image/png;base64,${lastResultImageB64}`;
+    a.download = "aicomu_result.png";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-  function showResultActions(mode) {
-    clearActionButtons();
+    if (mode === "B") {
+      disableAllUiAfterBSave(btnSave);
+    }
+  });
 
-    const row = document.createElement("div");
-    row.id = "resultActionRow";
-    row.className = "btnRow";
-    row.style.display = "flex";
-    row.style.gap = "8px";
-    row.style.justifyContent = "center";
-    row.style.margin = "12px 0";
+  row.appendChild(btnSave);
 
-    const btnSave = document.createElement("button");
-    btnSave.textContent = "保存する";
-    btnSave.type = "button";
+  if (mode === "A") {
+    const btnBack = document.createElement("button");
+    btnBack.textContent = "戻る";
+    btnBack.type = "button";
 
-    btnSave.addEventListener("click", function () {
-      if (!lastResultImageB64) {
-        addBubble("ai", "保存できる画像がまだないよ🐾");
-        return;
-      }
+    btnBack.addEventListener("click", function () {
+      clearActionButtons();
+      resetPreview();
+      resetAData();
+      resetBData();
+      currentMode = "";
+      stage = "idle";
+      lastResultImageB64 = "";
 
-      const a = document.createElement("a");
-      a.href = `data:image/png;base64,${lastResultImageB64}`;
-      a.download = "aicomu_result.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      if (inputBox) inputBox.style.display = "none";
+      if (cameraArea) cameraArea.style.display = "none";
+      if (previewArea) previewArea.style.display = "none";
+      showChoiceRow();
 
-      if (mode === "B") {
-        disableAllUiAfterBSave(btnSave);
-      }
+      addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
     });
 
-    row.appendChild(btnSave);
-
-    if (mode === "A") {
-      const btnBack = document.createElement("button");
-      btnBack.textContent = "戻る";
-      btnBack.type = "button";
-
-      btnBack.addEventListener("click", function () {
-        clearActionButtons();
-        resetPreview();
-        resetAData();
-        resetBData();
-        currentMode = "";
-        stage = "idle";
-        lastResultImageB64 = "";
-
-        if (inputBox) inputBox.style.display = "none";
-        if (cameraArea) cameraArea.style.display = "none";
-        if (previewArea) previewArea.style.display = "none";
-        showChoiceRow();
-
-        addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
-      });
-
-      row.appendChild(btnBack);
-    }
-
-    chatArea.appendChild(row);
-    scrollToBottom();
+    row.appendChild(btnBack);
   }
 
+  chatArea.appendChild(row);
+  scrollToBottom();
+}
   function finishImageResult(imageB64, doneStage, doneMessage) {
     if (!imageB64) {
       addBubble("ai", "画像データが見つからなかったよ🐾");
@@ -759,9 +746,9 @@ document.addEventListener("DOMContentLoaded", function () {
           if (inputUser) inputUser.value = "";
 
           if (files.length === 2) {
-            addBubble("ai", "この2枚でどんなことしたい？🐾\n例：服を入れ替える、人物を合成する");
+            addBubble("ai", "この2枚でどう合成したいか教えて？🐾\n例：服を入れ替える、人物を合成する");
           } else {
-            addBubble("ai", "この画像をどう修正したい？🐾\n例：服を変える、明るくする、雰囲気を変える");
+            addBubble("ai", "この画像をどう修正したいか教えて？🐾\n例：服を変える、明るくする、雰囲気を変える");
           }
           return;
         }
@@ -777,7 +764,7 @@ document.addEventListener("DOMContentLoaded", function () {
           bData.request = text;
           stage = "b-keep";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "絶対に変えたくない部分ある？🐾\n例：顔・髪・背景など\nなければ「なし」で大丈夫だよ🐾");
+          addBubble("ai", "絶対に変えたくない部分を教えてほしいな🐾\n例：顔・髪・背景など\nなければ「なし」で大丈夫だよ🐾");
           return;
         }
 
@@ -835,16 +822,15 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+if (inputUser) {
+  inputUser.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (sendBtn && !sendBtn.disabled) sendBtn.click();
+    }
+  });
+}
 
-  if (inputUser) {
-    inputUser.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        if (sendBtn && !sendBtn.disabled) sendBtn.click();
-      }
-    });
-  }
-
-  addBubble("ai", "ようこそAIコミュへ🐾");
-  addBubble("ai", "コードを入力してOKを押してね🐾");
+addBubble("ai", "ようこそAIコミュへ🐾");
+addBubble("ai", "コードを入力してOKを押してね🐾");
 });
