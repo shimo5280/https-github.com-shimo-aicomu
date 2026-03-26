@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const bData = {
     request: "",
+    keep: "",
     target: "",
     finishType: "",
     extra: ""
@@ -136,16 +137,32 @@ document.addEventListener("DOMContentLoaded", function () {
 
   async function fileToBase64(file) {
     return new Promise((resolve, reject) => {
+      if (!file) {
+        resolve("");
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = () => {
         const result = String(reader.result || "");
-        resolve(result.split(",")[1] || "");
+        const base64 = result.split(",")[1] || "";
+        resolve(base64);
       };
 
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  }
+
+  function syncFilesFromInputs() {
+    file1 = imageInput1 && imageInput1.files && imageInput1.files[0]
+      ? imageInput1.files[0]
+      : file1;
+
+    file2 = imageInput2 && imageInput2.files && imageInput2.files[0]
+      ? imageInput2.files[0]
+      : file2;
   }
 
   function resetPreview() {
@@ -197,6 +214,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function resetBData() {
     bData.request = "";
+    bData.keep = "";
     bData.target = "";
     bData.finishType = "";
     bData.extra = "";
@@ -239,7 +257,32 @@ document.addEventListener("DOMContentLoaded", function () {
     if (oldRow) oldRow.remove();
   }
 
-  function showResultActions() {
+  function disableAllUiAfterBSave(btnSave) {
+    currentMode = "";
+    stage = "idle";
+    isGenerating = false;
+
+    if (choiceRow) choiceRow.style.display = "none";
+    if (inputBox) inputBox.style.display = "none";
+    if (cameraArea) cameraArea.style.display = "none";
+    if (previewArea) previewArea.style.display = "none";
+    if (sendBtn) sendBtn.disabled = true;
+    if (inputUser) inputUser.disabled = true;
+    if (btnYes) btnYes.disabled = true;
+    if (btnNo) btnNo.disabled = true;
+    if (imageInput1) imageInput1.disabled = true;
+    if (imageInput2) imageInput2.disabled = true;
+
+    if (btnSave) {
+      btnSave.disabled = true;
+      btnSave.textContent = "保存したよ";
+    }
+
+    addBubble("ai", "保存が終わったよ🐾");
+    addBubble("ai", "Bの体験はここで終了だよ🐾");
+  }
+
+  function showResultActions(mode) {
     clearActionButtons();
 
     const row = document.createElement("div");
@@ -254,10 +297,6 @@ document.addEventListener("DOMContentLoaded", function () {
     btnSave.textContent = "保存する";
     btnSave.type = "button";
 
-    const btnBack = document.createElement("button");
-    btnBack.textContent = "戻る";
-    btnBack.type = "button";
-
     btnSave.addEventListener("click", function () {
       if (!lastResultImageB64) {
         addBubble("ai", "保存できる画像がまだないよ🐾");
@@ -270,27 +309,39 @@ document.addEventListener("DOMContentLoaded", function () {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    });
 
-    btnBack.addEventListener("click", function () {
-      clearActionButtons();
-      resetPreview();
-      resetAData();
-      resetBData();
-      currentMode = "";
-      stage = "idle";
-      lastResultImageB64 = "";
-
-      if (inputBox) inputBox.style.display = "none";
-      if (cameraArea) cameraArea.style.display = "none";
-      if (previewArea) previewArea.style.display = "none";
-      showChoiceRow();
-
-      addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
+      if (mode === "B") {
+        disableAllUiAfterBSave(btnSave);
+      }
     });
 
     row.appendChild(btnSave);
-    row.appendChild(btnBack);
+
+    if (mode === "A") {
+      const btnBack = document.createElement("button");
+      btnBack.textContent = "戻る";
+      btnBack.type = "button";
+
+      btnBack.addEventListener("click", function () {
+        clearActionButtons();
+        resetPreview();
+        resetAData();
+        resetBData();
+        currentMode = "";
+        stage = "idle";
+        lastResultImageB64 = "";
+
+        if (inputBox) inputBox.style.display = "none";
+        if (cameraArea) cameraArea.style.display = "none";
+        if (previewArea) previewArea.style.display = "none";
+        showChoiceRow();
+
+        addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
+      });
+
+      row.appendChild(btnBack);
+    }
+
     chatArea.appendChild(row);
     scrollToBottom();
   }
@@ -298,7 +349,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function finishImageResult(imageB64, doneStage, doneMessage) {
     if (!imageB64) {
       addBubble("ai", "画像データが見つからなかったよ🐾");
-      return;
+      return false;
     }
 
     lastResultImageB64 = imageB64;
@@ -310,8 +361,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (previewArea) previewArea.style.display = "none";
 
     addBubble("ai", doneMessage || "できたよ🐾");
-    addBubble("ai", "保存する？それとも戻る？🐾");
-    showResultActions();
+    return true;
   }
 
   async function requestSummaryA() {
@@ -385,7 +435,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
       loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
 
-      finishImageResult(data.image_b64, "a-done", "できたよ🐾");
+      const ok = finishImageResult(data.image_b64, "a-done", "できたよ🐾");
+      if (ok) {
+        addBubble("ai", "保存する？それとも戻る？🐾");
+        showResultActions("A");
+      }
+
       resetAData();
     } catch (error) {
       console.error(error);
@@ -405,6 +460,10 @@ document.addEventListener("DOMContentLoaded", function () {
         ? "Use these two source images for editing."
         : "Use this source image for editing.";
 
+    const keepText = bData.keep
+      ? `Do not modify these parts: ${bData.keep}.`
+      : "Do not modify any important parts unless explicitly requested.";
+
     const backgroundText =
       !bData.target || bData.target.includes("変えない")
         ? "Keep the background unchanged unless explicitly requested elsewhere."
@@ -414,6 +473,7 @@ document.addEventListener("DOMContentLoaded", function () {
       sourceText,
       "",
       `Main request: ${bData.request || "Edit naturally."}`,
+      keepText,
       backgroundText,
       `Mood: ${bData.finishType || "natural"}`,
       `Final style: ${bData.extra || "natural photo style"}`,
@@ -440,13 +500,25 @@ document.addEventListener("DOMContentLoaded", function () {
     const loading = addFootprintLoadingBubble();
 
     try {
+      syncFilesFromInputs();
+
       const image_b64 = file1 ? await fileToBase64(file1) : "";
       const image_b64_2 = file2 ? await fileToBase64(file2) : "";
       const finalPrompt = buildBPrompt();
 
+      console.log("file1 =", file1);
+      console.log("file2 =", file2);
       console.log("B finalPrompt =", finalPrompt);
       console.log("image_b64 exists =", !!image_b64);
       console.log("image_b64_2 exists =", !!image_b64_2);
+      console.log("image_b64 length =", image_b64 ? image_b64.length : 0);
+      console.log("image_b64_2 length =", image_b64_2 ? image_b64_2.length : 0);
+
+      if (!image_b64 && !image_b64_2) {
+        loading.stop("画像データが読み込めなかったよ🐾");
+        addBubble("ai", "スマホでは画像選択のあと、少し待ってから送ってみてね🐾");
+        return;
+      }
 
       if (!finalPrompt.trim()) {
         loading.stop("修正内容のまとめが空だったよ🐾");
@@ -479,7 +551,12 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       loading.stop(data.message || "お待たせ、画像を修正したよ🐾");
-      finishImageResult(data.image_b64, "b-done", "できたよ🐾");
+
+      const ok = finishImageResult(data.image_b64, "b-done", "できたよ🐾");
+      if (ok) {
+        addBubble("ai", "保存したらBの体験は終了だよ🐾");
+        showResultActions("B");
+      }
     } catch (error) {
       console.error(error);
       loading.stop("通信エラーが起きたよ🐾");
@@ -587,6 +664,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (imageInput1) {
     imageInput1.addEventListener("change", function () {
       file1 = imageInput1.files[0] || null;
+      console.log("imageInput1 changed:", file1);
       updatePreview();
     });
   }
@@ -594,6 +672,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (imageInput2) {
     imageInput2.addEventListener("change", function () {
       file2 = imageInput2.files[0] || null;
+      console.log("imageInput2 changed:", file2);
       updatePreview();
     });
   }
@@ -607,9 +686,6 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      // =========================
-      // Aパターン
-      // =========================
       if (currentMode === "A") {
         if (!text && stage !== "a-confirm") {
           addBubble("ai", "入力してね🐾");
@@ -662,11 +738,10 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
-      // =========================
-      // Bパターン
-      // =========================
       if (currentMode === "B") {
         if (stage === "b-wait-images") {
+          syncFilesFromInputs();
+
           if (!file1 && !file2) {
             addBubble("ai", "画像選んでね🐾");
             return;
@@ -700,6 +775,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (stage === "b-request") {
           bData.request = text;
+          stage = "b-keep";
+          if (inputUser) inputUser.value = "";
+          addBubble("ai", "絶対に変えたくない部分ある？🐾\n例：顔・髪・背景など\nなければ「なし」で大丈夫だよ🐾");
+          return;
+        }
+
+        if (stage === "b-keep") {
+          bData.keep = text === "なし" ? "" : text;
           stage = "b-background";
           if (inputUser) inputUser.value = "";
           addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
@@ -731,6 +814,7 @@ document.addEventListener("DOMContentLoaded", function () {
           addBubble(
             "ai",
             `・やりたいこと：${bData.request}\n` +
+            `・変えたくない部分：${bData.keep || "特になし"}\n` +
             `・背景：${bData.target || "変えない"}\n` +
             `・雰囲気：${bData.finishType}\n` +
             `・仕上がり：${bData.extra}`
@@ -756,7 +840,7 @@ document.addEventListener("DOMContentLoaded", function () {
     inputUser.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         e.preventDefault();
-        if (sendBtn) sendBtn.click();
+        if (sendBtn && !sendBtn.disabled) sendBtn.click();
       }
     });
   }
