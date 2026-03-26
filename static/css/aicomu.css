@@ -119,12 +119,14 @@ body{
   align-self: flex-start;
   background: #FFFFEE;
   border: 1px solid rgba(0,0,0,.10);
+  font-size: 14px;
 }
 
 .bubble.user{
   align-self: flex-end;
   background: #EEFFFF;
-  color: #000;
+  border: 1px solid rgba(0,0,0,.10);
+  font-size: 14px;
 }
 
 .bubble.loading{

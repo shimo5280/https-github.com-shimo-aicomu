@@ -21,7 +21,25 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN) if REPLICATE_
 
 
 def clean_text(text: str) -> str:
-    return re.sub(r"\s+", " ", (text or "")).strip()
+    text = "" if text is None else str(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def json_error(message: str, status_code: int = 400, image_b64: str = ""):
+    return jsonify({
+        "ok": False,
+        "message": message,
+        "image_b64": image_b64
+    }), status_code
+
+
+def json_ok(message: str, **kwargs):
+    payload = {
+        "ok": True,
+        "message": message
+    }
+    payload.update(kwargs)
+    return jsonify(payload)
 
 
 def require_code(code: str):
@@ -42,11 +60,13 @@ def read_replicate_output(output) -> bytes:
         return data
 
     if isinstance(output, str):
-        with urlopen(output) as res:
-            data = res.read()
-            if not data:
-                raise RuntimeError("Replicate 出力URLの読み込みに失敗しました")
-            return data
+        output_str = output.strip()
+        if output_str.startswith("http://") or output_str.startswith("https://"):
+            with urlopen(output_str) as res:
+                data = res.read()
+                if not data:
+                    raise RuntimeError("Replicate 出力URLの読み込みに失敗しました")
+                return data
 
     output_str = str(output).strip()
     if output_str.startswith("http://") or output_str.startswith("https://"):
@@ -63,25 +83,34 @@ def translate_to_english(text: str) -> str:
     if not openai_client:
         raise RuntimeError("OPENAI_API_KEY が未設定です")
 
+    jp_text = clean_text(text)
+    if not jp_text:
+        raise ValueError("翻訳するテキストが空です")
+
     response = openai_client.responses.create(
         model=OPENAI_TEXT_MODEL,
         input=[
             {
                 "role": "system",
                 "content": (
-                    "You translate Japanese image prompts into clear natural English for image generation or image editing. "
-                    "Keep the main subject strong and explicit. "
+                    "You translate Japanese prompts into clear natural English for image generation or image editing. "
+                    "Keep the main subject explicit and strong. "
                     "Do not add unnecessary details. "
                     "Return only the English prompt."
                 )
             },
             {
                 "role": "user",
-                "content": text
+                "content": jp_text
             }
         ]
     )
-    return clean_text(response.output_text or "")
+
+    prompt_en = clean_text(response.output_text or "")
+    if not prompt_en:
+        raise RuntimeError("英語プロンプトの生成に失敗しました")
+
+    return prompt_en
 
 
 def decode_base64_image(image_b64: str) -> bytes:
@@ -89,12 +118,12 @@ def decode_base64_image(image_b64: str) -> bytes:
         raise ValueError("image_b64 が空です")
 
     try:
-        return base64.b64decode(image_b64)
+        return base64.b64decode(image_b64, validate=True)
     except Exception as e:
         raise ValueError("image_b64 の変換に失敗しました") from e
 
 
-def edit_image_with_openai(image_bytes_list: list[bytes], prompt_en: str) -> str:
+def edit_image_with_openai(image_bytes_list, prompt_en: str) -> str:
     if not openai_client:
         raise RuntimeError("OPENAI_API_KEY が未設定です")
 
@@ -131,10 +160,10 @@ def generate_summary():
     try:
         data = request.get_json(silent=True) or {}
 
-        code = clean_text(data.get("code") or "")
-        purpose = clean_text(data.get("purpose") or "")
-        style = clean_text(data.get("style") or "")
-        image_type = clean_text(data.get("image_type") or "")
+        code = clean_text(data.get("code"))
+        purpose = clean_text(data.get("purpose"))
+        style = clean_text(data.get("style"))
+        image_type = clean_text(data.get("image_type"))
 
         require_code(code)
 
@@ -153,16 +182,17 @@ def generate_summary():
         user_text = f"""
 用途: {purpose}
 主役: {style}
-背景や雰囲気・色合い: {image_type}
+仕上がり: {image_type}
 
 この内容をもとに、
-画像生成用の補足アドバイスだけを日本語で1〜2文で作ってください。
+画像生成の方向性をぶらさない補足アドバイスだけを日本語で1〜2文で作ってください。
 
 条件:
 - 主役をぶらさない
-- 要約しすぎない
-- 補足だけ返す
+- 少し具体性を足す
+- 長くしすぎない
 - 最終プロンプトそのものは作らない
+- 日本語だけで返す
 """
 
         response = openai_client.responses.create(
@@ -171,8 +201,8 @@ def generate_summary():
                 {
                     "role": "system",
                     "content": (
-                        "あなたは画像生成用の補足を提案するアシスタントです。"
-                        "主役をぶらさず、具体性を少し足すだけにしてください。"
+                        "あなたは画像生成前の整理を手伝うアシスタントです。"
+                        "主役を保ったまま、少しだけ具体性を足す補足を作ってください。"
                     )
                 },
                 {
@@ -183,10 +213,12 @@ def generate_summary():
         )
 
         advice = clean_text(response.output_text or "")
+        if not advice:
+            advice = "主役が伝わるように、雰囲気や色味を少し具体的にすると良いよ🐾"
 
         return jsonify({
             "ok": True,
-            "summary": f"主役は「{style}」、用途は「{purpose}」、背景や雰囲気は「{image_type}」で進めるよ🐾",
+            "summary": f"主役は「{style}」、用途は「{purpose}」、仕上がりは「{image_type}」で進めるよ🐾",
             "advice": advice
         })
 
@@ -210,24 +242,19 @@ def generate_image():
     try:
         data = request.get_json(silent=True) or {}
 
-        code = clean_text(data.get("code") or "")
-        prompt_jp = clean_text(data.get("prompt") or "")
+        code = clean_text(data.get("code"))
+        prompt_jp = clean_text(data.get("prompt"))
 
         require_code(code)
 
         if not prompt_jp:
-            return jsonify({
-                "ok": False,
-                "message": "prompt が空です",
-                "image_b64": ""
-            }), 400
+            return json_error("prompt が空です", 400)
 
         if not replicate_client:
-            return jsonify({
-                "ok": False,
-                "message": "REPLICATE_API_TOKEN が未設定です",
-                "image_b64": ""
-            }), 500
+            return json_error("REPLICATE_API_TOKEN が未設定です", 500)
+
+        if not openai_client:
+            return json_error("OPENAI_API_KEY が未設定です", 500)
 
         prompt_en = translate_to_english(prompt_jp)
 
@@ -236,35 +263,28 @@ def generate_image():
 
         output = replicate_client.run(
             "black-forest-labs/flux-schnell",
-            input={"prompt": prompt_en}
+            input={
+                "prompt": prompt_en
+            }
         )
 
         image_bytes = read_replicate_output(output)
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-        return jsonify({
-            "ok": True,
-            "message": "お待たせ、画像を生成したよ🐾",
-            "image_b64": image_b64,
-            "final_prompt_jp": prompt_jp,
-            "final_prompt_en": prompt_en
-        })
+        return json_ok(
+            "お待たせ、画像を生成したよ🐾",
+            image_b64=image_b64,
+            final_prompt_jp=prompt_jp,
+            final_prompt_en=prompt_en
+        )
 
     except ValueError as e:
-        return jsonify({
-            "ok": False,
-            "message": str(e),
-            "image_b64": ""
-        }), 400
+        return json_error(str(e), 400)
 
     except Exception as e:
         print("generate_image error:", e)
         traceback.print_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"generate_image エラー: {str(e)}",
-            "image_b64": ""
-        }), 500
+        return json_error(f"generate_image エラー: {str(e)}", 500)
 
 
 @app.route("/api/edit_image", methods=["POST"])
@@ -272,33 +292,21 @@ def edit_image():
     try:
         data = request.get_json(silent=True) or {}
 
-        code = clean_text(data.get("code") or "")
-        prompt_jp = clean_text(data.get("prompt") or "")
+        code = clean_text(data.get("code"))
+        prompt_jp = clean_text(data.get("prompt"))
         image_b64 = data.get("image_b64") or ""
         image_b64_2 = data.get("image_b64_2") or ""
 
         require_code(code)
 
         if not prompt_jp:
-            return jsonify({
-                "ok": False,
-                "message": "prompt が空です",
-                "image_b64": ""
-            }), 400
+            return json_error("prompt が空です", 400)
 
         if not image_b64 and not image_b64_2:
-            return jsonify({
-                "ok": False,
-                "message": "修正元画像がありません",
-                "image_b64": ""
-            }), 400
+            return json_error("修正元画像がありません", 400)
 
         if not openai_client:
-            return jsonify({
-                "ok": False,
-                "message": "OPENAI_API_KEY が未設定です",
-                "image_b64": ""
-            }), 500
+            return json_error("OPENAI_API_KEY が未設定です", 500)
 
         prompt_en = translate_to_english(prompt_jp)
 
@@ -306,36 +314,29 @@ def edit_image():
         print("edit_image に渡す英語 prompt =", prompt_en)
 
         image_bytes_list = []
+
         if image_b64:
             image_bytes_list.append(decode_base64_image(image_b64))
+
         if image_b64_2:
             image_bytes_list.append(decode_base64_image(image_b64_2))
 
         edited_b64 = edit_image_with_openai(image_bytes_list, prompt_en)
 
-        return jsonify({
-            "ok": True,
-            "message": "お待たせ、画像を修正したよ🐾",
-            "image_b64": edited_b64,
-            "final_prompt_jp": prompt_jp,
-            "final_prompt_en": prompt_en
-        })
+        return json_ok(
+            "お待たせ、画像を修正したよ🐾",
+            image_b64=edited_b64,
+            final_prompt_jp=prompt_jp,
+            final_prompt_en=prompt_en
+        )
 
     except ValueError as e:
-        return jsonify({
-            "ok": False,
-            "message": str(e),
-            "image_b64": ""
-        }), 400
+        return json_error(str(e), 400)
 
     except Exception as e:
         print("edit_image error:", e)
         traceback.print_exc()
-        return jsonify({
-            "ok": False,
-            "message": f"edit_image エラー: {str(e)}",
-            "image_b64": ""
-        }), 500
+        return json_error(f"edit_image エラー: {str(e)}", 500)
 
 
 if __name__ == "__main__":
