@@ -60,11 +60,10 @@
           <div id="inputBox">
             <div id="cameraArea">
               <label for="imageInput1" id="cameraBtn1">📷1</label>
-              <input type="file" id="imageInput1" accept="image/*" capture="environment">
-               
+              <input type="file" id="imageInput1" accept="image/*" hidden>
 
               <label for="imageInput2" id="cameraBtn2">📷2</label>
-              <input type="file" id="imageInput2" accept="image/*">
+              <input type="file" id="imageInput2" accept="image/*" hidden>
             </div>
 
             <input type="text" id="inputUser" placeholder="入力してね☆">
@@ -79,7 +78,7 @@
       </div>
     </div>
   </section>
-  <script src="{{ url_for('static', filename='js/script.js') }}?v=7"></script>
-  <script src="{{ url_for('static', filename='js/aicomu.js') }}?v=7"></script>
+  
+  <script src="{{ url_for('static', filename='js/aocomu.js') }}?v=7"></script>
 </body>
 </html>
