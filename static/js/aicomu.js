@@ -295,6 +295,25 @@ document.addEventListener("DOMContentLoaded", function () {
     scrollToBottom();
   }
 
+  function finishImageResult(imageB64, doneStage, doneMessage) {
+    if (!imageB64) {
+      addBubble("ai", "画像データが見つからなかったよ🐾");
+      return;
+    }
+
+    lastResultImageB64 = imageB64;
+    addGeneratedImageBubble(imageB64);
+    stage = doneStage;
+
+    if (inputBox) inputBox.style.display = "none";
+    if (cameraArea) cameraArea.style.display = "none";
+    if (previewArea) previewArea.style.display = "none";
+
+    addBubble("ai", doneMessage || "できたよ🐾");
+    addBubble("ai", "保存する？それとも戻る？🐾");
+    showResultActions();
+  }
+
   async function requestSummaryA() {
     const loading = addFootprintLoadingBubble();
 
@@ -366,15 +385,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
       loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
 
-      if (data.image_b64) {
-        addGeneratedImageBubble(data.image_b64);
-      } else {
-        addBubble("ai", "画像データが見つからなかったよ🐾");
-      }
-
+      finishImageResult(data.image_b64, "a-done", "できたよ🐾");
       resetAData();
-      stage = "a-purpose";
-      addBubble("ai", "もう一回やるなら、この画像は何に使う予定？🐾");
     } catch (error) {
       console.error(error);
       loading.stop("通信エラーが起きたよ🐾");
@@ -467,22 +479,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       loading.stop(data.message || "お待たせ、画像を修正したよ🐾");
-
-      if (data.image_b64) {
-        lastResultImageB64 = data.image_b64;
-        addGeneratedImageBubble(data.image_b64);
-        stage = "b-done";
-
-        if (inputBox) inputBox.style.display = "none";
-        if (cameraArea) cameraArea.style.display = "none";
-        if (previewArea) previewArea.style.display = "none";
-
-        addBubble("ai", "できたよ🐾");
-        addBubble("ai", "保存する？それとも戻る？🐾");
-        showResultActions();
-      } else {
-        addBubble("ai", "画像データが見つからなかったよ🐾");
-      }
+      finishImageResult(data.image_b64, "b-done", "できたよ🐾");
     } catch (error) {
       console.error(error);
       loading.stop("通信エラーが起きたよ🐾");
@@ -614,12 +611,14 @@ document.addEventListener("DOMContentLoaded", function () {
       // Aパターン
       // =========================
       if (currentMode === "A") {
-        if (!text) {
+        if (!text && stage !== "a-confirm") {
           addBubble("ai", "入力してね🐾");
           return;
         }
 
-        addBubble("user", text);
+        if (text) {
+          addBubble("user", text);
+        }
 
         if (stage === "a-purpose") {
           aData.purpose = text;
@@ -655,6 +654,10 @@ document.addEventListener("DOMContentLoaded", function () {
         if (stage === "a-confirm") {
           await generateAImage();
           if (inputUser) inputUser.value = "";
+          return;
+        }
+
+        if (stage === "a-done") {
           return;
         }
       }
