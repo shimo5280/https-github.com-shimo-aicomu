@@ -478,12 +478,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const loading = addFootprintLoadingBubble();
 
     try {
-      // 最後に画像を持ち込む
       syncFilesFromInputs();
 
       if (!file1 && !file2) {
         loading.stop("画像がまだ入ってないよ🐾");
-        addBubble("ai", "画像を選んでから送ってね🐾");
+        addBubble("ai", "修正したい画像を送ってね🐾");
         return;
       }
 
@@ -501,7 +500,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (!image_b64 && !image_b64_2) {
         loading.stop("画像データが読み込めなかったよ🐾");
-        addBubble("ai", "もう一度画像を選んでみてね🐾");
+        addBubble("ai", "もう一度画像を選んで送ってね🐾");
         return;
       }
 
@@ -630,17 +629,20 @@ document.addEventListener("DOMContentLoaded", function () {
   if (btnNo) {
     btnNo.addEventListener("click", function () {
       currentMode = "B";
-      stage = "b-wait-images";
+      stage = "b-request";
       resetBData();
       resetPreview();
       clearActionButtons();
 
       addBubble("user", "B");
       addBubble("ai", "画像修正だね🐾");
-      addBubble("ai", "画像を1枚または2枚選べるよ🐾\n選んだら送信してね🐾");
+      addBubble("ai", "これから修正内容を一緒に決めていくね🐾");
+      addBubble("ai", "画像は最後に送ってもらうよ🐾");
+      addBubble("ai", "※1枚でも2枚でもOKだよ🐾");
+      addBubble("ai", "まず、どんな修正をしたい？🐾\n例：服を変える、明るくする、雰囲気を変える");
 
       hideChoiceRow();
-      showInputWithCamera();
+      showInputOnly();
       if (inputUser) inputUser.value = "";
       focusInput();
     });
@@ -730,6 +732,91 @@ document.addEventListener("DOMContentLoaded", function () {
       // Bパターン
       // =========================
       if (currentMode === "B") {
+        if (stage === "b-request") {
+          if (!text) {
+            addBubble("ai", "入力してね🐾");
+            return;
+          }
+          addBubble("user", text);
+          bData.request = text;
+          stage = "b-keep";
+          if (inputUser) inputUser.value = "";
+          addBubble("ai", "絶対に変えたくない部分を教えてほしいな🐾\n例：顔・髪・背景など\nなければ「なし」で大丈夫だよ🐾");
+          return;
+        }
+
+        if (stage === "b-keep") {
+          if (!text) {
+            addBubble("ai", "入力してね🐾");
+            return;
+          }
+          addBubble("user", text);
+          bData.keep = text === "なし" ? "" : text;
+          stage = "b-background";
+          if (inputUser) inputUser.value = "";
+          addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
+          return;
+        }
+
+        if (stage === "b-background") {
+          if (!text) {
+            addBubble("ai", "入力してね🐾");
+            return;
+          }
+          addBubble("user", text);
+          bData.target = text;
+          stage = "b-mood";
+          if (inputUser) inputUser.value = "";
+          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：ナチュラル、おしゃれ、ポップ");
+          return;
+        }
+
+        if (stage === "b-mood") {
+          if (!text) {
+            addBubble("ai", "入力してね🐾");
+            return;
+          }
+          addBubble("user", text);
+          bData.finishType = text;
+          stage = "b-style";
+          if (inputUser) inputUser.value = "";
+          addBubble("ai", "最後に、仕上がりはどんな感じにする？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロでくっきり");
+          return;
+        }
+
+        if (stage === "b-style") {
+          if (!text) {
+            addBubble("ai", "入力してね🐾");
+            return;
+          }
+          addBubble("user", text);
+          bData.extra = text;
+          stage = "b-confirm";
+          if (inputUser) inputUser.value = "OK";
+
+          addBubble("ai", "こんな感じで進めるよ🐾");
+          addBubble(
+            "ai",
+            `・やりたいこと：${bData.request}\n` +
+            `・変えたくない部分：${bData.keep || "特になし"}\n` +
+            `・背景：${bData.target || "変えない"}\n` +
+            `・雰囲気：${bData.finishType}\n` +
+            `・仕上がり：${bData.extra}`
+          );
+          addBubble("ai", "この内容でOKなら、そのまま送信してね🐾");
+          return;
+        }
+
+        if (stage === "b-confirm") {
+          addBubble("user", text || "OK");
+          stage = "b-wait-images";
+          if (inputUser) inputUser.value = "";
+          addBubble("ai", "ありがとう🐾");
+          addBubble("ai", "次に、修正したい画像を送ってね🐾\n1枚でも2枚でもOKだよ🐾");
+          showInputWithCamera();
+          return;
+        }
+
         if (stage === "b-wait-images") {
           syncFilesFromInputs();
 
@@ -746,75 +833,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
           if (previewArea) previewArea.style.display = "none";
 
-          stage = "b-request";
-          if (inputUser) inputUser.value = "";
-
-          if (files.length === 2) {
-            addBubble("ai", "この2枚でどんなことしたい？🐾\n例：服を入れ替える、人物を合成する");
-          } else {
-            addBubble("ai", "この画像をどう修正したい？🐾\n例：服を変える、明るくする、雰囲気を変える");
-          }
-          return;
-        }
-
-        if (!text) {
-          addBubble("ai", "入力してね🐾");
-          return;
-        }
-
-        addBubble("user", text);
-
-        if (stage === "b-request") {
-          bData.request = text;
-          stage = "b-keep";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "絶対に変えたくない部分を教えてほしいな🐾\n例：顔・髪・背景など\nなければ「なし」で大丈夫だよ🐾");
-          return;
-        }
-
-        if (stage === "b-keep") {
-          bData.keep = text === "なし" ? "" : text;
-          stage = "b-background";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
-          return;
-        }
-
-        if (stage === "b-background") {
-          bData.target = text;
-          stage = "b-mood";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：ナチュラル、おしゃれ、ポップ");
-          return;
-        }
-
-        if (stage === "b-mood") {
-          bData.finishType = text;
-          stage = "b-style";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "最後に、仕上がりはどんな感じにする？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロでくっきり");
-          return;
-        }
-
-        if (stage === "b-style") {
-          bData.extra = text;
-          stage = "b-confirm";
-          if (inputUser) inputUser.value = "修正";
-
-          addBubble("ai", "こんな感じで進めるよ🐾");
-          addBubble(
-            "ai",
-            `・やりたいこと：${bData.request}\n` +
-            `・変えたくない部分：${bData.keep || "特になし"}\n` +
-            `・背景：${bData.target || "変えない"}\n` +
-            `・雰囲気：${bData.finishType}\n` +
-            `・仕上がり：${bData.extra}`
-          );
-          addBubble("ai", "このままでよければ、そのまま送信してね🐾");
-          return;
-        }
-
-        if (stage === "b-confirm") {
           await generateBImage();
           if (inputUser) inputUser.value = "";
           return;
