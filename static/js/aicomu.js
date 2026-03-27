@@ -478,7 +478,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const loading = addFootprintLoadingBubble();
 
     try {
+      // 最後に画像を持ち込む
       syncFilesFromInputs();
+
+      if (!file1 && !file2) {
+        loading.stop("画像がまだ入ってないよ🐾");
+        addBubble("ai", "画像を選んでから送ってね🐾");
+        return;
+      }
 
       const image_b64 = file1 ? await fileToBase64(file1) : "";
       const image_b64_2 = file2 ? await fileToBase64(file2) : "";
@@ -494,7 +501,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (!image_b64 && !image_b64_2) {
         loading.stop("画像データが読み込めなかったよ🐾");
-        addBubble("ai", "スマホでは画像選択のあと、少し待ってから送ってみてね🐾");
+        addBubble("ai", "もう一度画像を選んでみてね🐾");
         return;
       }
 
@@ -545,19 +552,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  if (goAicomu) {
-    goAicomu.addEventListener("click", function () {
-      if (loadingOverlay) loadingOverlay.classList.remove("hidden");
-
-      setTimeout(function () {
-        if (loadingOverlay) loadingOverlay.classList.add("hidden");
-        if (pageTop) pageTop.classList.add("hidden");
-        if (pageAicomu) pageAicomu.classList.remove("hidden");
-        if (codeInput) codeInput.focus();
-      }, 700);
-    });
-  }
-
   function handleCodeCheck() {
     const code = codeInput ? codeInput.value.trim() : "";
     if (chatArea) chatArea.innerHTML = "";
@@ -587,6 +581,19 @@ document.addEventListener("DOMContentLoaded", function () {
     if (previewArea) previewArea.style.display = "none";
 
     resetAllModes();
+  }
+
+  if (goAicomu) {
+    goAicomu.addEventListener("click", function () {
+      if (loadingOverlay) loadingOverlay.classList.remove("hidden");
+
+      setTimeout(function () {
+        if (loadingOverlay) loadingOverlay.classList.add("hidden");
+        if (pageTop) pageTop.classList.add("hidden");
+        if (pageAicomu) pageAicomu.classList.remove("hidden");
+        if (codeInput) codeInput.focus();
+      }, 700);
+    });
   }
 
   if (btnCodeOk) {
@@ -664,6 +671,9 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
+      // =========================
+      // Aパターン
+      // =========================
       if (currentMode === "A") {
         if (!text && stage !== "a-confirm") {
           addBubble("ai", "入力してね🐾");
@@ -716,6 +726,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
+      // =========================
+      // Bパターン
+      // =========================
       if (currentMode === "B") {
         if (stage === "b-wait-images") {
           syncFilesFromInputs();
