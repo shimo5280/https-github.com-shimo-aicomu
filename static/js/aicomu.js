@@ -42,7 +42,10 @@ document.addEventListener("DOMContentLoaded", function () {
     request: "",
     target: "",
     finishType: "",
-    extra: ""
+    extra: "",
+    summary: "",
+    advice: "",
+    englishPrompt: ""
   };
 
   if (inputBox) inputBox.style.display = "none";
@@ -200,6 +203,9 @@ document.addEventListener("DOMContentLoaded", function () {
     bData.target = "";
     bData.finishType = "";
     bData.extra = "";
+    bData.summary = "";
+    bData.advice = "";
+    bData.englishPrompt = "";
   }
 
   function resetAllModes() {
@@ -353,6 +359,54 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  async function requestSummaryB() {
+    const loading = addFootprintLoadingBubble();
+
+    try {
+      const res = await fetch("/api/generate_summary_b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeInput.value.trim(),
+          request: bData.request,
+          background: bData.target,
+          mood: bData.finishType,
+          finish: bData.extra
+        })
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        loading.stop(data.message || "Bのまとめに失敗したよ🐾");
+        stage = "b-request";
+        return;
+      }
+
+      bData.summary = data.summary || "";
+      bData.advice = data.advice || "";
+      bData.englishPrompt = data.english_prompt || "";
+
+      loading.stop("こんな感じでまとめたよ🐾");
+      addBubble("ai", bData.summary || "まとめを作ったよ🐾");
+      addBubble("ai", "AIアドバイス🐾\n" + (bData.advice || "自然に整える方向でいくよ🐾"));
+
+      if (bData.englishPrompt) {
+        addBubble("ai", "英語プロンプト🐾\n" + bData.englishPrompt);
+      }
+
+      addBubble("ai", "このままでよければ、そのまま送信してね🐾");
+      stage = "b-confirm";
+    } catch (error) {
+      console.error(error);
+      loading.stop("通信エラーが起きたよ🐾");
+      stage = "b-request";
+    } finally {
+      if (inputUser) inputUser.value = "";
+      focusInput();
+    }
+  }
+
   async function generateAImage() {
     if (isGenerating) return;
     isGenerating = true;
@@ -384,7 +438,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
-
       finishImageResult(data.image_b64, "a-done", "できたよ🐾");
       resetAData();
     } catch (error) {
@@ -397,42 +450,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function buildBPrompt() {
-    const selectedCount = [file1, file2].filter(Boolean).length;
-
-    const sourceText =
-      selectedCount === 2
-        ? "Use these two source images for editing."
-        : "Use this source image for editing.";
-
-    const backgroundText =
-      !bData.target || bData.target.includes("変えない")
-        ? "Keep the background unchanged unless explicitly requested elsewhere."
-        : `Background request: ${bData.target}.`;
-
-    return [
-      sourceText,
-      "",
-      `Main request: ${bData.request || "Edit naturally."}`,
-      backgroundText,
-      `Mood: ${bData.finishType || "natural"}`,
-      `Final style: ${bData.extra || "natural photo style"}`,
-      "",
-      "IMPORTANT RULE:",
-      "This is an image editing task.",
-      "Do not modify any part of the original image unless explicitly requested.",
-      "Only edit the specified areas.",
-      "Preserve all other parts exactly as they are.",
-      "Keep the original face EXACTLY unchanged.",
-      "Do not alter age, identity, facial features, skin texture, facial lighting, or expression.",
-      "Do not make the subject look older, younger, sharper, or more mature.",
-      "No beautification.",
-      "No automatic enhancement.",
-      "No unnecessary changes.",
-      "No text, logo, watermark, signature, or extra decoration."
-    ].join("\n");
-  }
-
   async function generateBImage() {
     if (isGenerating) return;
     isGenerating = true;
@@ -442,14 +459,13 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       const image_b64 = file1 ? await fileToBase64(file1) : "";
       const image_b64_2 = file2 ? await fileToBase64(file2) : "";
-      const finalPrompt = buildBPrompt();
 
-      console.log("B finalPrompt =", finalPrompt);
+      console.log("B englishPrompt =", bData.englishPrompt);
       console.log("image_b64 exists =", !!image_b64);
       console.log("image_b64_2 exists =", !!image_b64_2);
 
-      if (!finalPrompt.trim()) {
-        loading.stop("修正内容のまとめが空だったよ🐾");
+      if (!bData.englishPrompt.trim()) {
+        loading.stop("英語プロンプトが空だったよ🐾");
         return;
       }
 
@@ -458,7 +474,8 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: codeInput.value.trim(),
-          prompt: finalPrompt,
+          prompt: bData.request,
+          prompt_en: bData.englishPrompt,
           image_b64: image_b64,
           image_b64_2: image_b64_2
         })
@@ -691,12 +708,14 @@ document.addEventListener("DOMContentLoaded", function () {
           return;
         }
 
-        if (!text) {
+        if (!text && stage !== "b-confirm") {
           addBubble("ai", "入力してね🐾");
           return;
         }
 
-        addBubble("user", text);
+        if (text) {
+          addBubble("user", text);
+        }
 
         if (stage === "b-request") {
           bData.request = text;
@@ -724,18 +743,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (stage === "b-style") {
           bData.extra = text;
-          stage = "b-confirm";
-          if (inputUser) inputUser.value = "修正";
-
-          addBubble("ai", "こんな感じで進めるよ🐾");
-          addBubble(
-            "ai",
-            `・やりたいこと：${bData.request}\n` +
-            `・背景：${bData.target || "変えない"}\n` +
-            `・雰囲気：${bData.finishType}\n` +
-            `・仕上がり：${bData.extra}`
-          );
-          addBubble("ai", "このままでよければ、そのまま送信してね🐾");
+          if (inputUser) inputUser.value = "";
+          await requestSummaryB();
           return;
         }
 
