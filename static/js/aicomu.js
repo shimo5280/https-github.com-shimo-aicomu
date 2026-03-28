@@ -135,8 +135,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
   }
-
- async function fileToBase64(file) {
+async function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -178,8 +177,9 @@ document.addEventListener("DOMContentLoaded", function () {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-
 }
+ 
+
   function resetPreview() {
     file1 = null;
     file2 = null;
