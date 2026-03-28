@@ -44,8 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
     finishType: "",
     extra: "",
     summary: "",
-    advice: "",
-    englishPrompt: ""
+    advice: ""
   };
 
   if (inputBox) inputBox.style.display = "none";
@@ -205,7 +204,6 @@ document.addEventListener("DOMContentLoaded", function () {
     bData.extra = "";
     bData.summary = "";
     bData.advice = "";
-    bData.englishPrompt = "";
   }
 
   function resetAllModes() {
@@ -369,40 +367,35 @@ document.addEventListener("DOMContentLoaded", function () {
         body: JSON.stringify({
           code: codeInput.value.trim(),
           request: bData.request,
-          background: bData.target,
-          mood: bData.finishType,
-          finish: bData.extra
+          target: bData.target,
+          finishType: bData.finishType,
+          extra: bData.extra
         })
       });
 
       const data = await res.json();
 
       if (!data.ok) {
-        loading.stop(data.message || "Bのまとめに失敗したよ🐾");
+        loading.stop(data.message || "まとめ失敗🐾");
         stage = "b-request";
         return;
       }
 
       bData.summary = data.summary || "";
       bData.advice = data.advice || "";
-      bData.englishPrompt = data.english_prompt || "";
 
-      loading.stop("こんな感じでまとめたよ🐾");
-      addBubble("ai", bData.summary || "まとめを作ったよ🐾");
-      addBubble("ai", "AIアドバイス🐾\n" + (bData.advice || "自然に整える方向でいくよ🐾"));
+      loading.stop("まとめたよ🐾");
+      addBubble("ai", bData.summary);
+      addBubble("ai", "アドバイス🐾\n" + bData.advice);
+      addBubble("ai", "この内容でいい？OKなら送信してね🐾");
 
-      if (bData.englishPrompt) {
-        addBubble("ai", "英語プロンプト🐾\n" + bData.englishPrompt);
-      }
-
-      addBubble("ai", "このままでよければ、そのまま送信してね🐾");
       stage = "b-confirm";
-    } catch (error) {
-      console.error(error);
-      loading.stop("通信エラーが起きたよ🐾");
+      if (inputUser) inputUser.value = "修正";
+    } catch (e) {
+      console.error(e);
+      loading.stop("通信エラー🐾");
       stage = "b-request";
     } finally {
-      if (inputUser) inputUser.value = "";
       focusInput();
     }
   }
@@ -438,6 +431,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
+
       finishImageResult(data.image_b64, "a-done", "できたよ🐾");
       resetAData();
     } catch (error) {
@@ -460,12 +454,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const image_b64 = file1 ? await fileToBase64(file1) : "";
       const image_b64_2 = file2 ? await fileToBase64(file2) : "";
 
-      console.log("B englishPrompt =", bData.englishPrompt);
-      console.log("image_b64 exists =", !!image_b64);
-      console.log("image_b64_2 exists =", !!image_b64_2);
-
-      if (!bData.englishPrompt.trim()) {
-        loading.stop("英語プロンプトが空だったよ🐾");
+      if (!bData.summary.trim()) {
+        loading.stop("要約が空だったよ🐾");
         return;
       }
 
@@ -474,19 +464,11 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: codeInput.value.trim(),
-          prompt: bData.request,
-          prompt_en: bData.englishPrompt,
+          prompt: bData.summary,
           image_b64: image_b64,
           image_b64_2: image_b64_2
         })
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("edit_image server error:", text);
-        loading.stop("サーバーエラーが出たよ🐾");
-        return;
-      }
 
       const data = await res.json();
 
