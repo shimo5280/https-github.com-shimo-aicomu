@@ -141,37 +141,44 @@ document.addEventListener("DOMContentLoaded", function () {
     const img = new Image();
     const reader = new FileReader();
 
-    reader.onload = function (e) {
-      img.onload = function () {
-        const maxSize = 1600;
-        let { width, height } = img;
+    reader.onload = () => {
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+
+        let width = img.width;
+        let height = img.height;
+
+        // 👇ここが重要（サイズ制限）
+        const maxSize = 1200;
 
         if (width > height && width > maxSize) {
-          height = Math.round(height * (maxSize / width));
+          height = Math.round((height * maxSize) / width);
           width = maxSize;
         } else if (height > maxSize) {
-          width = Math.round(width * (maxSize / height));
+          width = Math.round((width * maxSize) / height);
           height = maxSize;
         }
 
-        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
 
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.9);
-        resolve(jpegDataUrl.split(",")[1]);
+        // 👇JPEGで軽量化
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+
+        resolve(dataUrl.split(",")[1]);
       };
 
       img.onerror = reject;
-      img.src = e.target.result;
+      img.src = reader.result;
     };
 
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+
 }
   function resetPreview() {
     file1 = null;
