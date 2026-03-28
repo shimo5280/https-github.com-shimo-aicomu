@@ -258,14 +258,14 @@ def generate_summary_b():
 
         summary = (
             f"やりたいことは「{request_text}」、"
-            f"背景は「{target or '変えない'}」、"
+            f"画像のどの部分を変えたくないかは「{target or '特になし'}」、"
             f"雰囲気は「{finish_type}」、"
             f"仕上がりは「{extra or '自然'}」で進めるよ🐾"
         )
 
         advice_prompt = f"""
 やりたいこと: {request_text}
-背景: {target or "変えない"}
+画像のどの部分を変えたくないかは: {target or "特になし"}
 雰囲気: {finish_type}
 仕上がり: {extra or "自然"}
 
