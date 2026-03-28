@@ -90,9 +90,12 @@ Do not modify any part of the original image unless explicitly requested.
 Only edit the specified areas.
 Preserve all other parts exactly as they are.
 
+Do not change the face of the person inthe image.
 Keep the original face EXACTLY unchanged.
 Do not alter age, identity, facial features, skin texture, facial lighting, or expression.
 Do not make the subject look older, younger, sharper, or more mature.
+Keep the facial features consistent.
+Do not modify the face.
 
 No beautification.
 No automatic enhancement.

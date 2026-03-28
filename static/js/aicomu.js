@@ -721,7 +721,8 @@ async function fileToBase64(file) {
           bData.request = text;
           stage = "b-background";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "絶対変えてほしくないところを詳しく教えて？🐾\n例：人物や顔、背景、ポーズなど");
+          addBubble("ai", "変えてほしくないところを教えて？🐾\n例：人物や顔、背景、ポーズなど");
+          addBubble("ai", "※AIは特性上、どうしても顔や細部の雰囲気が変えることがあるよ🐾");
           return;
         }
 
