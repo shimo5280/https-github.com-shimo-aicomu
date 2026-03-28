@@ -1,766 +1,407 @@
-document.addEventListener("DOMContentLoaded", function () {
-  const pageTop = document.getElementById("pageTop");
-  const pageAicomu = document.getElementById("pageAicomu");
-  const goAicomu = document.getElementById("goAicomu");
-  const loadingOverlay = document.getElementById("loadingOverlay");
+import os
+import re
+import base64
+import traceback
+from io import BytesIO
 
-  const codeInput = document.getElementById("codeInput");
-  const btnCodeOk = document.getElementById("btnCodeOk");
+from flask import Flask, request, jsonify, render_template
+from openai import OpenAI
 
-  const chatArea = document.getElementById("chatArea");
-  const choiceRow = document.getElementById("choiceRow");
-  const btnYes = document.getElementById("btnYes"); // A
-  const btnNo = document.getElementById("btnNo");   // B
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
-  const inputBox = document.getElementById("inputBox");
-  const inputUser = document.getElementById("inputUser");
-  const sendBtn = document.getElementById("sendBtn");
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+OPENAI_TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
+AICOMU_CODE = os.environ.get("AICOMU_CODE", "AICOMU2026").strip()
 
-  const cameraArea = document.getElementById("cameraArea");
-  const imageInput1 = document.getElementById("imageInput1");
-  const imageInput2 = document.getElementById("imageInput2");
-  const previewArea = document.getElementById("previewArea");
+openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
-  const CODE_VALUE = "AICOMU2026";
 
-  let currentMode = "";
-  let stage = "idle";
-  let isGenerating = false;
+def clean_text(text: str) -> str:
+    text = "" if text is None else str(text)
+    return re.sub(r"\s+", " ", text).strip()
 
-  let file1 = null;
-  let file2 = null;
-  let lastResultImageB64 = "";
 
-  const aData = {
-    purpose: "",
-    subject: "",
-    imageType: "",
-    extra: ""
-  };
+def json_error(message: str, status_code: int = 400, image_b64: str = ""):
+    return jsonify({
+        "ok": False,
+        "message": message,
+        "image_b64": image_b64
+    }), status_code
 
-  const bData = {
-    request: "",
-    target: "",
-    finishType: "",
-    extra: ""
-  };
 
-  if (inputBox) inputBox.style.display = "none";
-  if (choiceRow) choiceRow.style.display = "none";
-  if (cameraArea) cameraArea.style.display = "none";
-  if (previewArea) previewArea.style.display = "none";
-
-  function scrollToBottom() {
-    if (!chatArea) return;
-    chatArea.scrollTop = chatArea.scrollHeight;
-  }
-
-  function addBubble(role, text) {
-    if (!chatArea) return null;
-    const bubble = document.createElement("div");
-    bubble.className = `bubble ${role}`;
-    bubble.textContent = text;
-    chatArea.appendChild(bubble);
-    scrollToBottom();
-    return bubble;
-  }
-
-  function addImageBubble(files) {
-    if (!chatArea) return;
-
-    const bubble = document.createElement("div");
-    bubble.className = "bubble user";
-
-    files.forEach((file) => {
-      if (!file) return;
-
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(file);
-      img.style.width = "70px";
-      img.style.height = "70px";
-      img.style.objectFit = "cover";
-      img.style.borderRadius = "8px";
-      img.style.margin = "4px";
-
-      bubble.appendChild(img);
-    });
-
-    chatArea.appendChild(bubble);
-    scrollToBottom();
-  }
-
-  function addGeneratedImageBubble(base64) {
-    if (!chatArea || !base64) return;
-
-    const bubble = document.createElement("div");
-    bubble.className = "bubble ai";
-
-    const img = document.createElement("img");
-    img.src = `data:image/png;base64,${base64}`;
-    img.style.display = "block";
-    img.style.maxWidth = "220px";
-    img.style.maxHeight = "220px";
-    img.style.objectFit = "cover";
-    img.style.borderRadius = "12px";
-
-    bubble.appendChild(img);
-    chatArea.appendChild(bubble);
-    scrollToBottom();
-  }
-
-  function addFootprintLoadingBubble() {
-    const bubble = addBubble("ai", "🐾");
-    if (!bubble) {
-      return {
-        stop() {}
-      };
+def json_ok(message: str, **kwargs):
+    payload = {
+        "ok": True,
+        "message": message
     }
+    payload.update(kwargs)
+    return jsonify(payload)
 
-    bubble.classList.add("loading");
 
-    let count = 1;
-    const interval = setInterval(() => {
-      count++;
-      if (count > 3) count = 1;
-      bubble.textContent = "🐾 ".repeat(count).trim();
-    }, 400);
+def require_code(code: str):
+    if clean_text(code) != AICOMU_CODE:
+        raise ValueError("コードが違います")
 
-    return {
-      stop(finalText) {
-        clearInterval(interval);
-        bubble.textContent = finalText;
-        bubble.classList.remove("loading");
-      }
-    };
-  }
 
-  async function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+def ensure_openai():
+    if not openai_client:
+        raise RuntimeError("OPENAI_API_KEY が未設定です")
 
-      reader.onload = () => {
-        const result = String(reader.result || "");
-        resolve(result.split(",")[1] || "");
-      };
 
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
+def translate_to_english(text: str) -> str:
+    ensure_openai()
 
-  function resetPreview() {
-    file1 = null;
-    file2 = null;
+    jp_text = clean_text(text)
+    if not jp_text:
+        raise ValueError("翻訳するテキストが空です")
 
-    if (imageInput1) imageInput1.value = "";
-    if (imageInput2) imageInput2.value = "";
+    response = openai_client.responses.create(
+        model=OPENAI_TEXT_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "You translate Japanese prompts into clear natural English for image generation or image editing. "
+                    "Keep the main subject explicit and strong. "
+                    "Do not add unnecessary details. "
+                    "Return only the English prompt."
+                )
+            },
+            {
+                "role": "user",
+                "content": jp_text
+            }
+        ]
+    )
 
-    if (previewArea) {
-      previewArea.innerHTML = "";
-      previewArea.style.display = "none";
-    }
-  }
+    prompt_en = clean_text(response.output_text or "")
+    if not prompt_en:
+        raise RuntimeError("英語プロンプトの生成に失敗しました")
 
-  function updatePreview() {
-    if (!previewArea) return;
+    return prompt_en
 
-    previewArea.innerHTML = "";
 
-    if (!file1 && !file2) {
-      previewArea.style.display = "none";
-      return;
-    }
+def build_edit_prompt_en(user_prompt_en: str) -> str:
+    rules = """
+IMPORTANT RULE:
+This is an image editing task.
 
-    previewArea.style.display = "block";
+Do not modify any part of the original image unless explicitly requested.
+Only edit the specified areas.
+Preserve all other parts exactly as they are.
 
-    [file1, file2].forEach((file) => {
-      if (!file) return;
+Keep the original face EXACTLY unchanged.
+Do not alter age, identity, facial features, skin texture, facial lighting, or expression.
+Do not make the subject look older, younger, sharper, or more mature.
 
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(file);
-      img.style.width = "90px";
-      img.style.height = "90px";
-      img.style.objectFit = "cover";
-      img.style.borderRadius = "8px";
-      img.style.margin = "4px";
+No beautification.
+No automatic enhancement.
+No unnecessary changes.
+No text, logo, watermark, signature, or extra decoration.
+""".strip()
 
-      previewArea.appendChild(img);
-    });
-  }
+    return f"{rules}\n\nUSER REQUEST:\n{user_prompt_en.strip()}"
 
-  function resetAData() {
-    aData.purpose = "";
-    aData.subject = "";
-    aData.imageType = "";
-    aData.extra = "";
-  }
 
-  function resetBData() {
-    bData.request = "";
-    bData.target = "";
-    bData.finishType = "";
-    bData.extra = "";
-  }
+def decode_base64_image(image_b64: str) -> bytes:
+    if not image_b64:
+        raise ValueError("image_b64 が空です")
 
-  function resetAllModes() {
-    currentMode = "";
-    stage = "idle";
-    resetPreview();
-    resetAData();
-    resetBData();
-    lastResultImageB64 = "";
-    clearActionButtons();
-  }
+    try:
+        return base64.b64decode(image_b64, validate=True)
+    except Exception as e:
+        raise ValueError("image_b64 の変換に失敗しました") from e
 
-  function hideChoiceRow() {
-    if (choiceRow) choiceRow.style.display = "none";
-  }
 
-  function showChoiceRow() {
-    if (choiceRow) choiceRow.style.display = "flex";
-  }
+def generate_image_with_openai(prompt_en: str) -> str:
+    ensure_openai()
 
-  function showInputOnly() {
-    if (inputBox) inputBox.style.display = "flex";
-    if (cameraArea) cameraArea.style.display = "none";
-  }
+    result = openai_client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt_en,
+        size="1024x1024"
+    )
 
-  function showInputWithCamera() {
-    if (inputBox) inputBox.style.display = "flex";
-    if (cameraArea) cameraArea.style.display = "flex";
-  }
+    if not result.data or not result.data[0].b64_json:
+        raise RuntimeError("画像生成の結果が空です")
 
-  function focusInput() {
-    if (inputUser) inputUser.focus();
-  }
+    return result.data[0].b64_json
 
-  function clearActionButtons() {
-    const oldRow = document.getElementById("resultActionRow");
-    if (oldRow) oldRow.remove();
-  }
 
-  function showResultActions() {
-    clearActionButtons();
+def edit_image_with_openai(image_bytes_list, prompt_en: str) -> str:
+    ensure_openai()
 
-    const row = document.createElement("div");
-    row.id = "resultActionRow";
-    row.className = "btnRow";
-    row.style.display = "flex";
-    row.style.gap = "8px";
-    row.style.justifyContent = "center";
-    row.style.margin = "12px 0";
+    if not image_bytes_list:
+        raise ValueError("編集元画像がありません")
 
-    const btnSave = document.createElement("button");
-    btnSave.textContent = "保存する";
-    btnSave.type = "button";
+    image_files = []
+    for i, image_bytes in enumerate(image_bytes_list, start=1):
+        image_file = BytesIO(image_bytes)
+        image_file.name = f"input{i}.png"
+        image_files.append(image_file)
 
-    const btnBack = document.createElement("button");
-    btnBack.textContent = "戻る";
-    btnBack.type = "button";
+    image_param = image_files[0] if len(image_files) == 1 else image_files
 
-    btnSave.addEventListener("click", function () {
-      if (!lastResultImageB64) {
-        addBubble("ai", "保存できる画像がまだないよ🐾");
-        return;
-      }
+    result = openai_client.images.edit(
+        model="gpt-image-1",
+        image=image_param,
+        prompt=prompt_en,
+    )
 
-      const a = document.createElement("a");
-      a.href = `data:image/png;base64,${lastResultImageB64}`;
-      a.download = "aicomu_result.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
+    if not result.data or not result.data[0].b64_json:
+        raise RuntimeError("画像編集の結果が空です")
 
-    btnBack.addEventListener("click", function () {
-      clearActionButtons();
-      resetPreview();
-      resetAData();
-      resetBData();
-      currentMode = "";
-      stage = "idle";
-      lastResultImageB64 = "";
+    return result.data[0].b64_json
 
-      if (inputBox) inputBox.style.display = "none";
-      if (cameraArea) cameraArea.style.display = "none";
-      if (previewArea) previewArea.style.display = "none";
-      showChoiceRow();
 
-      addBubble("ai", "A：生成 / B：修正 どっちにする？🐾");
-    });
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-    row.appendChild(btnSave);
-    row.appendChild(btnBack);
-    chatArea.appendChild(row);
-    scrollToBottom();
-  }
 
-  function finishImageResult(imageB64, doneStage, doneMessage) {
-    if (!imageB64) {
-      addBubble("ai", "画像データが見つからなかったよ🐾");
-      return;
-    }
+@app.route("/api/generate_summary", methods=["POST"])
+def generate_summary():
+    try:
+        data = request.get_json(silent=True) or {}
 
-    lastResultImageB64 = imageB64;
-    addGeneratedImageBubble(imageB64);
-    stage = doneStage;
+        code = clean_text(data.get("code"))
+        purpose = clean_text(data.get("purpose"))
+        style = clean_text(data.get("style"))
+        image_type = clean_text(data.get("image_type"))
 
-    if (inputBox) inputBox.style.display = "none";
-    if (cameraArea) cameraArea.style.display = "none";
-    if (previewArea) previewArea.style.display = "none";
+        require_code(code)
+        ensure_openai()
 
-    addBubble("ai", doneMessage || "できたよ🐾");
-    addBubble("ai", "保存する？それとも戻る？🐾");
-    showResultActions();
-  }
+        if not purpose or not style or not image_type:
+            return jsonify({
+                "ok": False,
+                "message": "必要な要素が足りないよ🐾"
+            }), 400
 
-  async function requestSummaryA() {
-    const loading = addFootprintLoadingBubble();
+        user_text = f"""
+用途: {purpose}
+主役: {style}
+仕上がり: {image_type}
 
-    try {
-      const res = await fetch("/api/generate_summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          purpose: aData.purpose,
-          style: aData.subject,
-          image_type: aData.imageType
+この内容をもとに、
+画像生成の方向性をぶらさない補足アドバイスだけを日本語で1〜2文で作ってください。
+
+条件:
+- 主役をぶらさない
+- 少し具体性を足す
+- 長くしすぎない
+- 最終プロンプトそのものは作らない
+- 日本語だけで返す
+"""
+
+        response = openai_client.responses.create(
+            model=OPENAI_TEXT_MODEL,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "あなたは画像生成前の整理を手伝うアシスタントです。"
+                        "主役を保ったまま、少しだけ具体性を足す補足を作ってください。"
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": user_text
+                }
+            ]
+        )
+
+        advice = clean_text(response.output_text or "")
+        if not advice:
+            advice = "主役が伝わるように、雰囲気や色味を少し具体的にすると良いよ🐾"
+
+        return jsonify({
+            "ok": True,
+            "summary": f"主役は「{style}」、用途は「{purpose}」、仕上がりは「{image_type}」で進めるよ🐾",
+            "advice": advice
         })
-      });
 
-      const data = await res.json();
+    except ValueError as e:
+        return jsonify({
+            "ok": False,
+            "message": str(e)
+        }), 400
 
-      if (!data.ok) {
-        loading.stop(data.message || "まとめに失敗したよ🐾");
-        stage = "a-purpose";
-        return;
-      }
+    except Exception as e:
+        print("generate_summary error:", e)
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": "まとめ作成でエラーが起きたよ🐾"
+        }), 500
 
-      loading.stop("こんな感じでまとめたよ🐾");
-      addBubble("ai", data.summary || "まとめを作ったよ🐾");
-      addBubble("ai", "AIアドバイス🐾\n" + (data.advice || "少し具体的にすると良いよ🐾"));
-      addBubble("ai", "もう1つだけ追加したいことがあれば教えてね🐾\nなければ「なし」で大丈夫だよ🐾");
 
-      stage = "a-extra";
-    } catch (error) {
-      console.error(error);
-      loading.stop("通信エラーが起きたよ🐾");
-      stage = "a-purpose";
-    } finally {
-      if (inputUser) inputUser.value = "";
-      focusInput();
-    }
-  }
+@app.route("/api/generate_summary_b", methods=["POST"])
+def generate_summary_b():
+    try:
+        data = request.get_json(silent=True) or {}
 
-  async function generateAImage() {
-    if (isGenerating) return;
-    isGenerating = true;
+        code = clean_text(data.get("code"))
+        request_text = clean_text(data.get("request"))
+        target = clean_text(data.get("target"))
+        finish_type = clean_text(data.get("finishType"))
+        extra = clean_text(data.get("extra"))
 
-    const finalPrompt = [
-      aData.purpose,
-      aData.subject,
-      aData.imageType,
-      aData.extra
-    ].filter(Boolean).join(" / ");
+        require_code(code)
+        ensure_openai()
 
-    const loading = addFootprintLoadingBubble();
+        if not request_text or not finish_type:
+            return jsonify({
+                "ok": False,
+                "message": "必要な要素が足りないよ🐾"
+            }), 400
 
-    try {
-      const res = await fetch("/api/generate_image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          prompt: finalPrompt
+        summary = (
+            f"やりたいことは「{request_text}」、"
+            f"背景は「{target or '変えない'}」、"
+            f"雰囲気は「{finish_type}」、"
+            f"仕上がりは「{extra or '自然'}」で進めるよ🐾"
+        )
+
+        advice_prompt = f"""
+やりたいこと: {request_text}
+背景: {target or "変えない"}
+雰囲気: {finish_type}
+仕上がり: {extra or "自然"}
+
+この内容をもとに、画像修正前の短い日本語アドバイスを1〜2文で返してください。
+条件:
+- 自然に仕上げる方向
+- 長すぎない
+- 日本語だけ
+"""
+
+        advice_res = openai_client.responses.create(
+            model=OPENAI_TEXT_MODEL,
+            input=[
+                {
+                    "role": "system",
+                    "content": "あなたは画像修正前の整理を手伝うアシスタントです。短い日本語アドバイスだけ返してください。"
+                },
+                {
+                    "role": "user",
+                    "content": advice_prompt
+                }
+            ]
+        )
+
+        advice = clean_text(advice_res.output_text or "")
+        if not advice:
+            advice = "自然に整えるといいよ🐾"
+
+        return jsonify({
+            "ok": True,
+            "summary": summary,
+            "advice": advice
         })
-      });
 
-      const data = await res.json();
+    except ValueError as e:
+        return jsonify({
+            "ok": False,
+            "message": str(e)
+        }), 400
 
-      if (!data.ok) {
-        loading.stop(data.message || "画像生成に失敗したよ🐾");
-        return;
-      }
+    except Exception as e:
+        print("generate_summary_b error:", e)
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": "Bのまとめ作成でエラーが起きたよ🐾"
+        }), 500
 
-      loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
 
-      finishImageResult(data.image_b64, "a-done", "できたよ🐾");
-      resetAData();
-    } catch (error) {
-      console.error(error);
-      loading.stop("通信エラーが起きたよ🐾");
-    } finally {
-      isGenerating = false;
-      if (inputUser) inputUser.value = "";
-      focusInput();
-    }
-  }
+@app.route("/api/generate_image", methods=["POST"])
+def generate_image():
+    try:
+        data = request.get_json(silent=True) or {}
 
-  function buildBPrompt() {
-    const selectedCount = [file1, file2].filter(Boolean).length;
+        code = clean_text(data.get("code"))
+        prompt_jp = clean_text(data.get("prompt"))
 
-    const sourceText =
-      selectedCount === 2
-        ? "Use these two source images for editing."
-        : "Use this source image for editing.";
+        require_code(code)
+        ensure_openai()
 
-    const backgroundText =
-      !bData.target || bData.target.includes("変えない")
-        ? "Keep the background unchanged unless explicitly requested elsewhere."
-        : `Background request: ${bData.target}.`;
+        if not prompt_jp:
+            return json_error("prompt が空です", 400)
 
-    return [
-      sourceText,
-      "",
-      `Main request: ${bData.request || "Edit naturally."}`,
-      backgroundText,
-      `Mood: ${bData.finishType || "natural"}`,
-      `Final style: ${bData.extra || "natural photo style"}`,
-      "",
-      "IMPORTANT RULE:",
-      "This is an image editing task.",
-      "Do not modify any part of the original image unless explicitly requested.",
-      "Only edit the specified areas.",
-      "Preserve all other parts exactly as they are.",
-      "Keep the original face EXACTLY unchanged.",
-      "Do not alter age, identity, facial features, skin texture, facial lighting, or expression.",
-      "Do not make the subject look older, younger, sharper, or more mature.",
-      "No beautification.",
-      "No automatic enhancement.",
-      "No unnecessary changes.",
-      "No text, logo, watermark, signature, or extra decoration."
-    ].join("\n");
-  }
+        prompt_en = translate_to_english(prompt_jp)
 
-  async function generateBImage() {
-    if (isGenerating) return;
-    isGenerating = true;
+        print("generate_image に渡された日本語 prompt =", prompt_jp)
+        print("generate_image に渡す英語 prompt =", prompt_en)
 
-    const loading = addFootprintLoadingBubble();
+        image_b64 = generate_image_with_openai(prompt_en)
 
-    try {
-      const image_b64 = file1 ? await fileToBase64(file1) : "";
-      const image_b64_2 = file2 ? await fileToBase64(file2) : "";
-      const finalPrompt = buildBPrompt();
+        return json_ok(
+            "お待たせ、画像を生成したよ🐾",
+            image_b64=image_b64,
+            final_prompt_jp=prompt_jp,
+            final_prompt_en=prompt_en
+        )
 
-      console.log("B finalPrompt =", finalPrompt);
-      console.log("image_b64 exists =", !!image_b64);
-      console.log("image_b64_2 exists =", !!image_b64_2);
+    except ValueError as e:
+        return json_error(str(e), 400)
 
-      if (!finalPrompt.trim()) {
-        loading.stop("修正内容のまとめが空だったよ🐾");
-        return;
-      }
+    except Exception as e:
+        print("generate_image error:", e)
+        traceback.print_exc()
+        return json_error(f"generate_image エラー: {str(e)}", 500)
 
-      const res = await fetch("/api/edit_image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          prompt: finalPrompt,
-          image_b64: image_b64,
-          image_b64_2: image_b64_2
-        })
-      });
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("edit_image server error:", text);
-        loading.stop("サーバーエラーが出たよ🐾");
-        return;
-      }
+@app.route("/api/edit_image", methods=["POST"])
+def edit_image():
+    try:
+        data = request.get_json(silent=True) or {}
 
-      const data = await res.json();
+        code = clean_text(data.get("code"))
+        prompt_jp = clean_text(data.get("prompt"))
+        image_b64 = data.get("image_b64") or ""
+        image_b64_2 = data.get("image_b64_2") or ""
 
-      if (!data.ok) {
-        loading.stop(data.message || "画像修正に失敗したよ🐾");
-        return;
-      }
+        require_code(code)
+        ensure_openai()
 
-      loading.stop(data.message || "お待たせ、画像を修正したよ🐾");
-      finishImageResult(data.image_b64, "b-done", "できたよ🐾");
-    } catch (error) {
-      console.error(error);
-      loading.stop("通信エラーが起きたよ🐾");
-    } finally {
-      isGenerating = false;
-      if (inputUser) inputUser.value = "";
-      focusInput();
-    }
-  }
+        if not prompt_jp:
+            return json_error("prompt が空です", 400)
 
-  if (goAicomu) {
-    goAicomu.addEventListener("click", function () {
-      if (loadingOverlay) loadingOverlay.classList.remove("hidden");
+        if not image_b64 and not image_b64_2:
+            return json_error("修正元画像がありません", 400)
 
-      setTimeout(function () {
-        if (loadingOverlay) loadingOverlay.classList.add("hidden");
-        if (pageTop) pageTop.classList.add("hidden");
-        if (pageAicomu) pageAicomu.classList.remove("hidden");
-        if (codeInput) codeInput.focus();
-      }, 700);
-    });
-  }
+        prompt_en_raw = translate_to_english(prompt_jp)
+        prompt_en = build_edit_prompt_en(prompt_en_raw)
 
-  function handleCodeCheck() {
-    const code = codeInput ? codeInput.value.trim() : "";
-    if (chatArea) chatArea.innerHTML = "";
-    clearActionButtons();
+        print("edit_image に渡された日本語 prompt =", prompt_jp)
+        print("edit_image に渡す英語 prompt =", prompt_en)
 
-    if (!code) {
-      addBubble("ai", "コードを入力してね🐾");
-      return;
-    }
+        image_bytes_list = []
 
-    if (code !== CODE_VALUE) {
-      addBubble("ai", "コードが違うよ🐾");
-      hideChoiceRow();
-      if (inputBox) inputBox.style.display = "none";
-      if (cameraArea) cameraArea.style.display = "none";
-      if (previewArea) previewArea.style.display = "none";
-      resetAllModes();
-      return;
-    }
+        if image_b64:
+            image_bytes_list.append(decode_base64_image(image_b64))
 
-    addBubble("ai", "コードOK🐾");
-    addBubble("ai", "A：生成 / B：修正 どっち？🐾");
+        if image_b64_2:
+            image_bytes_list.append(decode_base64_image(image_b64_2))
 
-    showChoiceRow();
-    if (inputBox) inputBox.style.display = "none";
-    if (cameraArea) cameraArea.style.display = "none";
-    if (previewArea) previewArea.style.display = "none";
+        edited_b64 = edit_image_with_openai(image_bytes_list, prompt_en)
 
-    resetAllModes();
-  }
+        return json_ok(
+            "お待たせ、画像を修正したよ🐾",
+            image_b64=edited_b64,
+            final_prompt_jp=prompt_jp,
+            final_prompt_en=prompt_en
+        )
 
-  if (btnCodeOk) {
-    btnCodeOk.addEventListener("click", handleCodeCheck);
-  }
+    except ValueError as e:
+        return json_error(str(e), 400)
 
-  if (codeInput) {
-    codeInput.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        handleCodeCheck();
-      }
-    });
-  }
+    except Exception as e:
+        print("edit_image error:", e)
+        traceback.print_exc()
+        return json_error(f"edit_image エラー: {str(e)}", 500)
 
-  if (btnYes) {
-    btnYes.addEventListener("click", function () {
-      currentMode = "A";
-      stage = "a-purpose";
-      resetAData();
-      resetPreview();
-      clearActionButtons();
 
-      addBubble("user", "A");
-      addBubble("ai", "画像生成だね🐾");
-      addBubble("ai", "まず、この画像は何に使う予定？🐾\n例：SNS投稿、アイコン、ホームページ背景、鑑賞用など");
-
-      hideChoiceRow();
-      showInputOnly();
-      if (inputUser) inputUser.value = "";
-      focusInput();
-    });
-  }
-
-  if (btnNo) {
-    btnNo.addEventListener("click", function () {
-      currentMode = "B";
-      stage = "b-wait-images";
-      resetBData();
-      resetPreview();
-      clearActionButtons();
-
-      addBubble("user", "B");
-      addBubble("ai", "画像修正だね🐾");
-      addBubble("ai", "画像を1枚または2枚選べるよ🐾\n選んだら送信してね🐾");
-
-      hideChoiceRow();
-      showInputWithCamera();
-      if (inputUser) inputUser.value = "";
-      focusInput();
-    });
-  }
-
-  if (imageInput1) {
-    imageInput1.addEventListener("change", function () {
-      file1 = imageInput1.files[0] || null;
-      updatePreview();
-    });
-  }
-
-  if (imageInput2) {
-    imageInput2.addEventListener("change", function () {
-      file2 = imageInput2.files[0] || null;
-      updatePreview();
-    });
-  }
-
-  if (sendBtn) {
-    sendBtn.addEventListener("click", async function () {
-      const text = inputUser ? inputUser.value.trim() : "";
-
-      if (!currentMode) {
-        addBubble("ai", "AかB選んでね🐾");
-        return;
-      }
-
-      // =========================
-      // Aパターン
-      // =========================
-      if (currentMode === "A") {
-        if (!text && stage !== "a-confirm") {
-          addBubble("ai", "入力してね🐾");
-          return;
-        }
-
-        if (text) {
-          addBubble("user", text);
-        }
-
-        if (stage === "a-purpose") {
-          aData.purpose = text;
-          stage = "a-subject";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "次に何を主役にしたい？🐾\n例：かわいい猫、キレイな景色、ポップなロゴ");
-          return;
-        }
-
-        if (stage === "a-subject") {
-          aData.subject = text;
-          stage = "a-type";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "最後に、画像の仕上がりはどんな感じにする？🐾\n例：写真風、イラスト風、漫画風");
-          return;
-        }
-
-        if (stage === "a-type") {
-          aData.imageType = text;
-          await requestSummaryA();
-          return;
-        }
-
-        if (stage === "a-extra") {
-          aData.extra = text === "なし" ? "" : text;
-          stage = "a-confirm";
-          if (inputUser) inputUser.value = "生成";
-          addBubble("ai", "生成する準備ができたよ🐾");
-          addBubble("ai", "このままでよければ、そのまま送信してね🐾");
-          return;
-        }
-
-        if (stage === "a-confirm") {
-          await generateAImage();
-          if (inputUser) inputUser.value = "";
-          return;
-        }
-
-        if (stage === "a-done") {
-          return;
-        }
-      }
-
-      // =========================
-      // Bパターン
-      // =========================
-      if (currentMode === "B") {
-        if (stage === "b-wait-images") {
-          if (!file1 && !file2) {
-            addBubble("ai", "画像選んでね🐾");
-            return;
-          }
-
-          const files = [];
-          if (file1) files.push(file1);
-          if (file2) files.push(file2);
-
-          addImageBubble(files);
-
-          if (previewArea) previewArea.style.display = "none";
-
-          stage = "b-request";
-          if (inputUser) inputUser.value = "";
-
-          if (files.length === 2) {
-            addBubble("ai", "この2枚でどんなことしたい？🐾\n例：服を入れ替える、人物を合成する");
-          } else {
-            addBubble("ai", "この画像をどう修正したい？🐾\n例：服を変える、明るくする、雰囲気を変える");
-          }
-          return;
-        }
-
-        if (!text) {
-          addBubble("ai", "入力してね🐾");
-          return;
-        }
-
-        addBubble("user", text);
-
-        if (stage === "b-request") {
-          bData.request = text;
-          stage = "b-background";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
-          return;
-        }
-
-        if (stage === "b-background") {
-          bData.target = text;
-          stage = "b-mood";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：ナチュラル、おしゃれ、ポップ");
-          return;
-        }
-
-        if (stage === "b-mood") {
-          bData.finishType = text;
-          stage = "b-style";
-          if (inputUser) inputUser.value = "";
-          addBubble("ai", "最後に、仕上がりはどんな感じにする？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロでくっきり");
-          return;
-        }
-
-        if (stage === "b-style") {
-          bData.extra = text;
-          stage = "b-confirm";
-          if (inputUser) inputUser.value = "修正";
-
-          addBubble("ai", "こんな感じで進めるよ🐾");
-          addBubble(
-            "ai",
-            `・やりたいこと：${bData.request}\n` +
-            `・背景：${bData.target || "変えない"}\n` +
-            `・雰囲気：${bData.finishType}\n` +
-            `・仕上がり：${bData.extra}`
-          );
-          addBubble("ai", "このままでよければ、そのまま送信してね🐾");
-          return;
-        }
-
-        if (stage === "b-confirm") {
-          await generateBImage();
-          if (inputUser) inputUser.value = "";
-          return;
-        }
-
-        if (stage === "b-done") {
-          return;
-        }
-      }
-    });
-  }
-
-  if (inputUser) {
-    inputUser.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        if (sendBtn) sendBtn.click();
-      }
-    });
-  }
-
-  addBubble("ai", "ようこそAIコミュへ🐾");
-  addBubble("ai", "コードを入力してOKを押してね🐾");
-});
+if __name__ == "__main__":
+    app.run(debug=True)
