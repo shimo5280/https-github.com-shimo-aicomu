@@ -598,7 +598,7 @@ async function fileToBase64(file) {
 
       addBubble("user", "B");
       addBubble("ai", "画像修正だね🐾");
-      addBubble("ai", "画像を1枚または2枚選べるよ🐾\n選んだら送信してね🐾");
+      addBubble("ai", "画像を1枚または2枚選べるよ🐾\n選んだら送信ボタンを押してね🐾");
 
       hideChoiceRow();
       showInputWithCamera();
@@ -703,7 +703,7 @@ async function fileToBase64(file) {
           if (files.length === 2) {
             addBubble("ai", "この2枚でどんなことしたい？🐾\n例：服を入れ替える、人物を合成する");
           } else {
-            addBubble("ai", "この画像をどう修正したい？🐾\n例：服を変える、明るくする、雰囲気を変える");
+            addBubble("ai", "この画像をどのように修正したい？🐾\n例：服を着替えさせたい、背景を～にする、雰囲気を～な感じにしたい");
           }
           return;
         }
@@ -721,7 +721,7 @@ async function fileToBase64(file) {
           bData.request = text;
           stage = "b-background";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
+          addBubble("ai", "絶対変えてほしくないところを詳しく教えて？🐾\n例：人物や顔、背景、ポーズなど");
           return;
         }
 
@@ -729,7 +729,7 @@ async function fileToBase64(file) {
           bData.target = text;
           stage = "b-mood";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：ナチュラル、おしゃれ、ポップ");
+          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：自然な感じ、おしゃれな感じ、ポップな感じなど");
           return;
         }
 
@@ -737,7 +737,7 @@ async function fileToBase64(file) {
           bData.finishType = text;
           stage = "b-style";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "最後に、仕上がりはどんな感じにする？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロでくっきり");
+          addBubble("ai", "最後に、仕上がりはどんな感じにしたい？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロで漫画風など");
           return;
         }
 
