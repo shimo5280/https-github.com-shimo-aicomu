@@ -136,20 +136,43 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
-  async function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+ async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
 
-      reader.onload = () => {
-        const result = String(reader.result || "");
-        resolve(result.split(",")[1] || "");
+    reader.onload = function (e) {
+      img.onload = function () {
+        const maxSize = 1600;
+        let { width, height } = img;
+
+        if (width > height && width > maxSize) {
+          height = Math.round(height * (maxSize / width));
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = Math.round(width * (maxSize / height));
+          height = maxSize;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+        resolve(jpegDataUrl.split(",")[1]);
       };
 
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
 
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
   function resetPreview() {
     file1 = null;
     file2 = null;
