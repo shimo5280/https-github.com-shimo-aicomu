@@ -148,7 +148,7 @@ async function fileToBase64(file) {
         let height = img.height;
 
         // 👇ここが重要（サイズ制限）
-        const maxSize = 1200;
+        const maxSize = 1000;
 
         if (width > height && width > maxSize) {
           height = Math.round((height * maxSize) / width);
@@ -165,7 +165,7 @@ async function fileToBase64(file) {
         ctx.drawImage(img, 0, 0, width, height);
 
         // 👇JPEGで軽量化
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
 
         resolve(dataUrl.split(",")[1]);
       };
