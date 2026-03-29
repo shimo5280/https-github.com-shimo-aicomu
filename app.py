@@ -2,22 +2,18 @@ import os
 import re
 import base64
 import traceback
-from urllib.request import urlopen
 from io import BytesIO
 
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
-import replicate
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 OPENAI_TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini").strip()
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "").strip()
 AICOMU_CODE = os.environ.get("AICOMU_CODE", "AICOMU2026").strip()
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN) if REPLICATE_API_TOKEN else None
 
 
 def clean_text(text: str) -> str:
@@ -47,41 +43,13 @@ def require_code(code: str):
         raise ValueError("コードが違います")
 
 
-def read_replicate_output(output) -> bytes:
-    if isinstance(output, (list, tuple)):
-        if not output:
-            raise RuntimeError("Replicate の出力が空です")
-        output = output[0]
-
-    if hasattr(output, "read"):
-        data = output.read()
-        if not data:
-            raise RuntimeError("Replicate 出力の読み込みに失敗しました")
-        return data
-
-    if isinstance(output, str):
-        output_str = output.strip()
-        if output_str.startswith("http://") or output_str.startswith("https://"):
-            with urlopen(output_str) as res:
-                data = res.read()
-                if not data:
-                    raise RuntimeError("Replicate 出力URLの読み込みに失敗しました")
-                return data
-
-    output_str = str(output).strip()
-    if output_str.startswith("http://") or output_str.startswith("https://"):
-        with urlopen(output_str) as res:
-            data = res.read()
-            if not data:
-                raise RuntimeError("Replicate 出力URLの読み込みに失敗しました")
-            return data
-
-    raise RuntimeError(f"未対応の Replicate 出力形式です: {type(output)}")
+def ensure_openai():
+    if not openai_client:
+        raise RuntimeError("OPENAI_API_KEY が未設定です")
 
 
 def translate_to_english(text: str) -> str:
-    if not openai_client:
-        raise RuntimeError("OPENAI_API_KEY が未設定です")
+    ensure_openai()
 
     jp_text = clean_text(text)
     if not jp_text:
@@ -126,6 +94,10 @@ Keep the original face EXACTLY unchanged.
 Do not alter age, identity, facial features, skin texture, facial lighting, or expression.
 Do not make the subject look older, younger, sharper, or more mature.
 
+Do not change the person's face.
+Keep the same face as the original image.
+Donot change theface,only 【background/clothing/etc】.
+
 No beautification.
 No automatic enhancement.
 No unnecessary changes.
@@ -145,9 +117,23 @@ def decode_base64_image(image_b64: str) -> bytes:
         raise ValueError("image_b64 の変換に失敗しました") from e
 
 
+def generate_image_with_openai(prompt_en: str) -> str:
+    ensure_openai()
+
+    result = openai_client.images.generate(
+        model="gpt-image-1",
+        prompt=prompt_en,
+        size="1024x1024"
+    )
+
+    if not result.data or not result.data[0].b64_json:
+        raise RuntimeError("画像生成の結果が空です")
+
+    return result.data[0].b64_json
+
+
 def edit_image_with_openai(image_bytes_list, prompt_en: str) -> str:
-    if not openai_client:
-        raise RuntimeError("OPENAI_API_KEY が未設定です")
+    ensure_openai()
 
     if not image_bytes_list:
         raise ValueError("編集元画像がありません")
@@ -188,18 +174,13 @@ def generate_summary():
         image_type = clean_text(data.get("image_type"))
 
         require_code(code)
+        ensure_openai()
 
         if not purpose or not style or not image_type:
             return jsonify({
                 "ok": False,
                 "message": "必要な要素が足りないよ🐾"
             }), 400
-
-        if not openai_client:
-            return jsonify({
-                "ok": False,
-                "message": "OPENAI_API_KEY が未設定です"
-            }), 500
 
         user_text = f"""
 用途: {purpose}
@@ -259,6 +240,85 @@ def generate_summary():
         }), 500
 
 
+@app.route("/api/generate_summary_b", methods=["POST"])
+def generate_summary_b():
+    try:
+        data = request.get_json(silent=True) or {}
+
+        code = clean_text(data.get("code"))
+        request_text = clean_text(data.get("request"))
+        target = clean_text(data.get("target"))
+        finish_type = clean_text(data.get("finishType"))
+        extra = clean_text(data.get("extra"))
+
+        require_code(code)
+        ensure_openai()
+
+        if not request_text or not finish_type:
+            return jsonify({
+                "ok": False,
+                "message": "必要な要素が足りないよ🐾"
+            }), 400
+
+        summary = (
+            f"やりたいことは「{request_text}」、"
+            f"画像のどの部分を変えたくないかは「{target or '特になし'}」、"
+            f"雰囲気は「{finish_type}」、"
+            f"仕上がりは「{extra or '自然'}」で進めるよ🐾"
+        )
+
+        advice_prompt = f"""
+やりたいこと: {request_text}
+画像のどの部分を変えたくないかは: {target or "特になし"}
+雰囲気: {finish_type}
+仕上がり: {extra or "自然"}
+
+この内容をもとに、画像修正前の短い日本語アドバイスを1〜2文で返してください。
+条件:
+- 自然に仕上げる方向
+- 長すぎない
+- 日本語だけ
+"""
+
+        advice_res = openai_client.responses.create(
+            model=OPENAI_TEXT_MODEL,
+            input=[
+                {
+                    "role": "system",
+                    "content": "あなたは画像修正前の整理を手伝うアシスタントです。短い日本語アドバイスだけ返してください。"
+                },
+                {
+                    "role": "user",
+                    "content": advice_prompt
+                }
+            ]
+        )
+
+        advice = clean_text(advice_res.output_text or "")
+        if not advice:
+            advice = "自然に整えるといいよ🐾"
+
+        return jsonify({
+            "ok": True,
+            "summary": summary,
+            "advice": advice
+        })
+
+    except ValueError as e:
+        return jsonify({
+            "ok": False,
+            "message": str(e)
+        }), 400
+
+    except Exception as e:
+        print("generate_summary_b error:", e)
+        traceback.print_exc()
+        return jsonify({
+            "ok": False,
+            "message": "Bのまとめ作成でエラーが起きたよ🐾"
+        }), 500
+
+
 @app.route("/api/generate_image", methods=["POST"])
 def generate_image():
     try:
@@ -268,30 +328,17 @@ def generate_image():
         prompt_jp = clean_text(data.get("prompt"))
 
         require_code(code)
+        ensure_openai()
 
         if not prompt_jp:
             return json_error("prompt が空です", 400)
-
-        if not replicate_client:
-            return json_error("REPLICATE_API_TOKEN が未設定です", 500)
-
-        if not openai_client:
-            return json_error("OPENAI_API_KEY が未設定です", 500)
 
         prompt_en = translate_to_english(prompt_jp)
 
         print("generate_image に渡された日本語 prompt =", prompt_jp)
         print("generate_image に渡す英語 prompt =", prompt_en)
 
-        output = replicate_client.run(
-            "black-forest-labs/flux-schnell",
-            input={
-                "prompt": prompt_en
-            }
-        )
-
-        image_bytes = read_replicate_output(output)
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        image_b64 = generate_image_with_openai(prompt_en)
 
         return json_ok(
             "お待たせ、画像を生成したよ🐾",
@@ -320,15 +367,13 @@ def edit_image():
         image_b64_2 = data.get("image_b64_2") or ""
 
         require_code(code)
+        ensure_openai()
 
         if not prompt_jp:
             return json_error("prompt が空です", 400)
 
         if not image_b64 and not image_b64_2:
             return json_error("修正元画像がありません", 400)
-
-        if not openai_client:
-            return json_error("OPENAI_API_KEY が未設定です", 500)
 
         prompt_en_raw = translate_to_english(prompt_jp)
         prompt_en = build_edit_prompt_en(prompt_en_raw)

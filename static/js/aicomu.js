@@ -702,7 +702,8 @@ document.addEventListener("DOMContentLoaded", function () {
           bData.request = text;
           stage = "b-background";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
+          addBubble("ai", "変えてほしくないところを教えて？🐾\n例：人物や顔、背景、ポーズなど");
+          addBubble("ai", "※AIは特性上、どうしても顔や細部の雰囲気が変えることがあるよ🐾");
           return;
         }
 
@@ -731,7 +732,7 @@ document.addEventListener("DOMContentLoaded", function () {
           addBubble(
             "ai",
             `・やりたいこと：${bData.request}\n` +
-            `・背景：${bData.target || "変えない"}\n` +
+            `・変えたくないところ:${bData.target || "特になし"}\n` +
             `・雰囲気：${bData.finishType}\n` +
             `・仕上がり：${bData.extra}`
           );
