@@ -42,9 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     request: "",
     target: "",
     finishType: "",
-    extra: "",
-    summary: "",
-    advice: ""
+    extra: ""
   };
 
   if (inputBox) inputBox.style.display = "none";
@@ -135,50 +133,20 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
   }
-async function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
 
-    reader.onload = () => {
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
+  async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-        let width = img.width;
-        let height = img.height;
-
-        // 👇ここが重要（サイズ制限）
-        const maxSize = 1000;
-
-        if (width > height && width > maxSize) {
-          height = Math.round((height * maxSize) / width);
-          width = maxSize;
-        } else if (height > maxSize) {
-          width = Math.round((width * maxSize) / height);
-          height = maxSize;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // 👇JPEGで軽量化
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-
-        resolve(dataUrl.split(",")[1]);
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        resolve(result.split(",")[1] || "");
       };
 
-      img.onerror = reject;
-      img.src = reader.result;
-    };
-
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
- 
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 
   function resetPreview() {
     file1 = null;
@@ -232,8 +200,6 @@ async function fileToBase64(file) {
     bData.target = "";
     bData.finishType = "";
     bData.extra = "";
-    bData.summary = "";
-    bData.advice = "";
   }
 
   function resetAllModes() {
@@ -399,8 +365,8 @@ async function fileToBase64(file) {
     ].filter(Boolean).join(" / ");
 
     const loading = addFootprintLoadingBubble();
-   
-     try {
+
+    try {
       const res = await fetch("/api/generate_image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -418,6 +384,7 @@ async function fileToBase64(file) {
       }
 
       loading.stop(data.message || "お待たせ、画像を生成したよ🐾");
+
       finishImageResult(data.image_b64, "a-done", "できたよ🐾");
       resetAData();
     } catch (error) {
@@ -430,47 +397,40 @@ async function fileToBase64(file) {
     }
   }
 
-  async function requestSummaryB() {
-    const loading = addFootprintLoadingBubble();
+  function buildBPrompt() {
+    const selectedCount = [file1, file2].filter(Boolean).length;
 
-    try {
-      const res = await fetch("/api/generate_summary_b", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeInput.value.trim(),
-          request: bData.request,
-          target: bData.target,
-          finishType: bData.finishType,
-          extra: bData.extra
-        })
-      });
+    const sourceText =
+      selectedCount === 2
+        ? "Use these two source images for editing."
+        : "Use this source image for editing.";
 
-      const data = await res.json();
+    const backgroundText =
+      !bData.target || bData.target.includes("変えない")
+        ? "Keep the background unchanged unless explicitly requested elsewhere."
+        : `Background request: ${bData.target}.`;
 
-      if (!data.ok) {
-        loading.stop(data.message || "まとめ失敗🐾");
-        stage = "b-request";
-        return;
-      }
-
-      bData.summary = data.summary || "";
-      bData.advice = data.advice || "";
-
-      loading.stop("まとめたよ🐾");
-      addBubble("ai", bData.summary);
-      addBubble("ai", "アドバイス🐾\n" + bData.advice);
-      addBubble("ai", "この内容でいい？OKなら送信してね🐾");
-
-      stage = "b-confirm";
-      if (inputUser) inputUser.value = "修正";
-    } catch (e) {
-      console.error(e);
-      loading.stop("通信エラー🐾");
-      stage = "b-request";
-    } finally {
-      focusInput();
-    }
+    return [
+      sourceText,
+      "",
+      `Main request: ${bData.request || "Edit naturally."}`,
+      backgroundText,
+      `Mood: ${bData.finishType || "natural"}`,
+      `Final style: ${bData.extra || "natural photo style"}`,
+      "",
+      "IMPORTANT RULE:",
+      "This is an image editing task.",
+      "Do not modify any part of the original image unless explicitly requested.",
+      "Only edit the specified areas.",
+      "Preserve all other parts exactly as they are.",
+      "Keep the original face EXACTLY unchanged.",
+      "Do not alter age, identity, facial features, skin texture, facial lighting, or expression.",
+      "Do not make the subject look older, younger, sharper, or more mature.",
+      "No beautification.",
+      "No automatic enhancement.",
+      "No unnecessary changes.",
+      "No text, logo, watermark, signature, or extra decoration."
+    ].join("\n");
   }
 
   async function generateBImage() {
@@ -482,17 +442,34 @@ async function fileToBase64(file) {
     try {
       const image_b64 = file1 ? await fileToBase64(file1) : "";
       const image_b64_2 = file2 ? await fileToBase64(file2) : "";
+      const finalPrompt = buildBPrompt();
+
+      console.log("B finalPrompt =", finalPrompt);
+      console.log("image_b64 exists =", !!image_b64);
+      console.log("image_b64_2 exists =", !!image_b64_2);
+
+      if (!finalPrompt.trim()) {
+        loading.stop("修正内容のまとめが空だったよ🐾");
+        return;
+      }
 
       const res = await fetch("/api/edit_image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: codeInput.value.trim(),
-          prompt: bData.summary,
+          prompt: finalPrompt,
           image_b64: image_b64,
           image_b64_2: image_b64_2
         })
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("edit_image server error:", text);
+        loading.stop("サーバーエラーが出たよ🐾");
+        return;
+      }
 
       const data = await res.json();
 
@@ -598,7 +575,7 @@ async function fileToBase64(file) {
 
       addBubble("user", "B");
       addBubble("ai", "画像修正だね🐾");
-      addBubble("ai", "画像を1枚または2枚選べるよ🐾\n選んだら送信ボタンを押してね🐾");
+      addBubble("ai", "画像を1枚または2枚選べるよ🐾\n選んだら送信してね🐾");
 
       hideChoiceRow();
       showInputWithCamera();
@@ -630,6 +607,9 @@ async function fileToBase64(file) {
         return;
       }
 
+      // =========================
+      // Aパターン
+      // =========================
       if (currentMode === "A") {
         if (!text && stage !== "a-confirm") {
           addBubble("ai", "入力してね🐾");
@@ -682,6 +662,9 @@ async function fileToBase64(file) {
         }
       }
 
+      // =========================
+      // Bパターン
+      // =========================
       if (currentMode === "B") {
         if (stage === "b-wait-images") {
           if (!file1 && !file2) {
@@ -703,26 +686,23 @@ async function fileToBase64(file) {
           if (files.length === 2) {
             addBubble("ai", "この2枚でどんなことしたい？🐾\n例：服を入れ替える、人物を合成する");
           } else {
-            addBubble("ai", "この画像をどのように修正したい？🐾\n例：服を着替えさせたい、背景を～にする、雰囲気を～な感じにしたい");
+            addBubble("ai", "この画像をどう修正したい？🐾\n例：服を変える、明るくする、雰囲気を変える");
           }
           return;
         }
 
-        if (!text && stage !== "b-confirm") {
+        if (!text) {
           addBubble("ai", "入力してね🐾");
           return;
         }
 
-        if (text) {
-          addBubble("user", text);
-        }
+        addBubble("user", text);
 
         if (stage === "b-request") {
           bData.request = text;
           stage = "b-background";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "変えてほしくないところを教えて？🐾\n例：人物や顔、背景、ポーズなど");
-          addBubble("ai", "※AIは特性上、どうしても顔や細部の雰囲気が変えることがあるよ🐾");
+          addBubble("ai", "背景も変える？🐾\n例：海、街、ファンタジー、変えない");
           return;
         }
 
@@ -730,7 +710,7 @@ async function fileToBase64(file) {
           bData.target = text;
           stage = "b-mood";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：自然な感じ、おしゃれな感じ、ポップな感じなど");
+          addBubble("ai", "どんな雰囲気にしたい？🐾\n例：ナチュラル、おしゃれ、ポップ");
           return;
         }
 
@@ -738,14 +718,24 @@ async function fileToBase64(file) {
           bData.finishType = text;
           stage = "b-style";
           if (inputUser) inputUser.value = "";
-          addBubble("ai", "最後に、仕上がりはどんな感じにしたい？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロで漫画風など");
+          addBubble("ai", "最後に、仕上がりはどんな感じにする？🐾\n色合いとスタイルを教えてね\n例：カラーで写真風、セピアでイラスト風、モノクロでくっきり");
           return;
         }
 
         if (stage === "b-style") {
           bData.extra = text;
-          if (inputUser) inputUser.value = "";
-          await requestSummaryB();
+          stage = "b-confirm";
+          if (inputUser) inputUser.value = "修正";
+
+          addBubble("ai", "こんな感じで進めるよ🐾");
+          addBubble(
+            "ai",
+            `・やりたいこと：${bData.request}\n` +
+            `・背景：${bData.target || "変えない"}\n` +
+            `・雰囲気：${bData.finishType}\n` +
+            `・仕上がり：${bData.extra}`
+          );
+          addBubble("ai", "このままでよければ、そのまま送信してね🐾");
           return;
         }
 
