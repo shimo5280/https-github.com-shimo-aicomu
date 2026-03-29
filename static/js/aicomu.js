@@ -399,11 +399,7 @@ async function fileToBase64(file) {
     ].filter(Boolean).join(" / ");
 
     const loading = addFootprintLoadingBubble();
-
-    setTimeout(() => {
-     loading.stop("少し時間がかかってるよ🐾もう一度試してみてね🐾");
-     }, 15000);
-    
+   
      try {
       const res = await fetch("/api/generate_image", {
         method: "POST",
