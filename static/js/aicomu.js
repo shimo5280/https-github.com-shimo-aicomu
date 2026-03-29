@@ -400,7 +400,11 @@ async function fileToBase64(file) {
 
     const loading = addFootprintLoadingBubble();
 
-    try {
+    setTimeout(() => {
+     loading.stop("少し時間がかかってるよ🐾もう一度試してみてね🐾");
+     }, 15000);
+    
+     try {
       const res = await fetch("/api/generate_image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
